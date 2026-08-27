@@ -1,47 +1,32 @@
--- Load from a GitHub raw URL after publishing the MonHubKey folder:
--- local KeySystem = loadstring(game:HttpGet("YOUR_RAW_URL/KeySystem.lua"))()
+local MonHubKey = loadstring(game:HttpGet("https://raw.githubusercontent.com/SoftRatatui/MonHubKey/refs/heads/main/KeySystem.lua"))()
 
--- In Roblox Studio, put KeySystem next to this LocalScript and use:
-local KeySystem = require(script.Parent.KeySystem)
+MonHubKey.Appearance.Title = "MonHub"
+MonHubKey.Appearance.Icon = "rbxassetid://134697043118282"
+MonHubKey.Links.Discord = "Discord.gg/jnkie"
+MonHubKey.Storage.FileName = "MonHub_key"
 
-local gate
-gate = KeySystem.new({
-	Title = "Onyx",
-	Subtitle = "Enter your key to continue",
-	Placeholder = "key",
+MonHubKey.Theme.Accent = Color3.fromRGB(110, 60, 255)
+MonHubKey.Theme.AccentHover = Color3.fromRGB(130, 90, 255)
+MonHubKey.Theme.Background = Color3.fromRGB(10, 10, 20)
+MonHubKey.Theme.Header = Color3.fromRGB(15, 15, 30)
+MonHubKey.Theme.Input = Color3.fromRGB(20, 20, 40)
+MonHubKey.Theme.Text = Color3.fromRGB(255, 255, 255)
+MonHubKey.Theme.TextDim = Color3.fromRGB(160, 160, 200)
+MonHubKey.Theme.Success = Color3.fromRGB(0, 220, 180)
+MonHubKey.Theme.Error = Color3.fromRGB(255, 70, 90)
+MonHubKey.Theme.StatusIdle = Color3.fromRGB(120, 100, 200)
 
-	GetKeyUrl = "https://example.com/get-key",
-	DiscordUrl = "https://discord.gg/example",
-	PremiumUrl = "https://example.com/premium",
+MonHubKey.Shop = {
+	Enabled = true,
+	Icon = "",
+	Title = "Get Premium",
+	Subtitle = "Instant delivery • 24/7 support",
+	ButtonText = "Buy",
+	Link = "jnkie.com",
+}
 
-	-- This is only a local demo. Use your own API/server-backed validation in production.
-	Validate = function(key)
-		task.wait(0.5)
-		if key == "MONHUB" then
-			return {
-				Success = true,
-				Message = "Welcome back",
-				Data = { Plan = "Free" },
-			}
-		end
-		return false, "Invalid or expired key"
-	end,
-
-	OnSuccess = function(key, data)
-		print("Accepted:", key, data and data.Plan)
-		-- Start the protected script here.
-	end,
-
-	OnFailure = function(key, reason)
-		warn("Rejected:", key, reason)
-	end,
+MonHubKey:Launch({
+	Service = "MonHub",
+	Identifier = "1149237",
+	Provider = "MonHub",
 })
-
--- Public methods:
--- gate:Show()
--- gate:Hide()
--- gate:Submit("MONHUB")
--- gate:SetStatus("Custom message", "success" | "error" | "neutral")
--- gate:SetKey("MONHUB")
--- gate:GetKey()
--- gate:Destroy()

@@ -1,6 +1,3 @@
---!strict
--- MonHubKey is a standalone key gate. It does not require or modify Obsidian.
-
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -12,6 +9,7 @@ KeySystem.__index = KeySystem
 local DEFAULT_THEME = {
 	Overlay = Color3.fromRGB(5, 7, 10),
 	Card = Color3.fromRGB(22, 23, 28),
+	Header = Color3.fromRGB(22, 23, 28),
 	CardRaised = Color3.fromRGB(29, 30, 37),
 	CardHover = Color3.fromRGB(35, 36, 44),
 	Outline = Color3.fromRGB(58, 60, 70),
@@ -30,9 +28,9 @@ local DEFAULT_THEME = {
 
 local function create(className, properties)
 	local instance = Instance.new(className)
-	for property, value in properties do
+	for property, value in pairs(properties) do
 		if property ~= "Parent" then
-			(instance :: any)[property] = value
+			instance[property] = value
 		end
 	end
 	instance.Parent = properties.Parent
@@ -41,11 +39,11 @@ end
 
 local function merge(base, overrides)
 	local result = {}
-	for key, value in base do
+	for key, value in pairs(base) do
 		result[key] = value
 	end
 	if type(overrides) == "table" then
-		for key, value in overrides do
+		for key, value in pairs(overrides) do
 			result[key] = value
 		end
 	end
@@ -105,8 +103,8 @@ end
 
 local function normalizeValidationResult(first, second)
 	if type(first) == "table" then
-		local success = first.Success == true or first.Valid == true
-		return success, first.Message, first.Data
+		local success = first.Success == true or first.Valid == true or first.valid == true
+		return success, first.Message or first.message or first.error, first.Data or first.data or first
 	end
 	return first == true, second, nil
 end
@@ -172,6 +170,9 @@ function KeySystem:_build()
 	local options = self.Options
 	local theme = self.Theme
 	local parent = resolveParent(options.Parent)
+	local showPremium = options.ShowPremium ~= false
+	local cardHeight = showPremium and 354 or 280
+	self.CardHeight = cardHeight
 
 	local existing = parent:FindFirstChild(options.GuiName or "MonHubKey")
 	if existing then
@@ -222,7 +223,7 @@ function KeySystem:_build()
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		Position = UDim2.new(0.5, 0, 0.5, 8),
-		Size = UDim2.fromOffset(432, 366),
+		Size = UDim2.fromOffset(432, cardHeight + 12),
 		ZIndex = 2,
 		Parent = overlay,
 	})
@@ -236,7 +237,7 @@ function KeySystem:_build()
 		BorderSizePixel = 0,
 		GroupTransparency = 1,
 		Position = UDim2.fromScale(0.5, 0.5),
-		Size = UDim2.fromOffset(420, 354),
+		Size = UDim2.fromOffset(420, cardHeight),
 		ZIndex = 3,
 		Parent = overlay,
 	})
@@ -256,12 +257,44 @@ function KeySystem:_build()
 	})
 	self.ShadowScale = shadowScale
 
+	local headerSurface = create("Frame", {
+		Name = "Header",
+		BackgroundColor3 = theme.Header or theme.Card,
+		BorderSizePixel = 0,
+		Size = UDim2.new(1, 0, 0, 52),
+		ZIndex = 3,
+		Parent = card,
+	})
+	addCorner(headerSurface, 16)
+	create("Frame", {
+		BackgroundColor3 = theme.Header or theme.Card,
+		BorderSizePixel = 0,
+		Position = UDim2.new(0, 0, 1, -16),
+		Size = UDim2.new(1, 0, 0, 16),
+		ZIndex = 3,
+		Parent = headerSurface,
+	})
+
+	local hasIcon = type(options.Icon) == "string" and options.Icon ~= ""
+	if hasIcon then
+		create("ImageLabel", {
+			Name = "Icon",
+			BackgroundTransparency = 1,
+			Image = options.Icon,
+			Position = UDim2.fromOffset(18, 11),
+			Size = options.IconSize or UDim2.fromOffset(30, 30),
+			ScaleType = Enum.ScaleType.Fit,
+			ZIndex = 5,
+			Parent = card,
+		})
+	end
+
 	local title = create("TextLabel", {
 		Name = "Title",
 		Active = true,
 		BackgroundTransparency = 1,
-		Position = UDim2.fromOffset(20, 0),
-		Size = UDim2.new(1, -66, 0, 52),
+		Position = UDim2.fromOffset(hasIcon and 58 or 20, 0),
+		Size = UDim2.new(1, hasIcon and -104 or -66, 0, 52),
 		Font = Enum.Font.GothamBold,
 		Text = options.Title or "MonHub",
 		TextColor3 = theme.Text,
@@ -438,6 +471,8 @@ function KeySystem:_build()
 
 	local getKeyButton = makeAction("GetKey", "⌕  " .. (options.GetKeyText or "Get key"), 1)
 	local discordButton = makeAction("Discord", "◯  " .. (options.DiscordText or "Discord"), 2)
+	getKeyButton.Visible = options.ShowGetKey ~= false
+	discordButton.Visible = options.ShowDiscord ~= false
 	self.GetKeyButton = getKeyButton
 	self.DiscordButton = discordButton
 
@@ -451,25 +486,45 @@ function KeySystem:_build()
 		Parent = card,
 	})
 
+	local premiumIcon = options.PremiumIcon
+	if (type(premiumIcon) ~= "string" or premiumIcon == "") and hasIcon then
+		premiumIcon = options.Icon
+	end
+	local hasPremiumIcon = type(premiumIcon) == "string" and premiumIcon ~= ""
+	if hasPremiumIcon then
+		create("ImageLabel", {
+			Name = "PremiumIcon",
+			BackgroundTransparency = 1,
+			Image = premiumIcon,
+			Position = UDim2.fromOffset(18, 285),
+			Size = UDim2.fromOffset(32, 32),
+			ScaleType = Enum.ScaleType.Fit,
+			Visible = showPremium,
+			ZIndex = 5,
+			Parent = card,
+		})
+	end
+
 	local premiumTitle = create("TextLabel", {
 		Name = "PremiumTitle",
 		BackgroundTransparency = 1,
-		Position = UDim2.fromOffset(18, 282),
-		Size = UDim2.new(1, -132, 0, 19),
+		Position = UDim2.fromOffset(hasPremiumIcon and 60 or 18, 282),
+		Size = UDim2.new(1, hasPremiumIcon and -174 or -132, 0, 19),
 		Font = Enum.Font.GothamBold,
 		Text = options.PremiumTitle or "Get Premium",
 		TextColor3 = theme.Text,
 		TextSize = 13,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		ZIndex = 4,
+		Visible = showPremium,
 		Parent = card,
 	})
 
 	local premiumSubtitle = create("TextLabel", {
 		Name = "PremiumSubtitle",
 		BackgroundTransparency = 1,
-		Position = UDim2.fromOffset(18, 302),
-		Size = UDim2.new(1, -132, 0, 18),
+		Position = UDim2.fromOffset(hasPremiumIcon and 60 or 18, 302),
+		Size = UDim2.new(1, hasPremiumIcon and -174 or -132, 0, 18),
 		Font = Enum.Font.Gotham,
 		Text = options.PremiumSubtitle or "Instant delivery · 24/7 support",
 		TextColor3 = theme.MutedText,
@@ -477,6 +532,7 @@ function KeySystem:_build()
 		TextTruncate = Enum.TextTruncate.AtEnd,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		ZIndex = 4,
+		Visible = showPremium,
 		Parent = card,
 	})
 
@@ -493,6 +549,7 @@ function KeySystem:_build()
 		TextColor3 = Color3.fromRGB(248, 250, 255),
 		TextSize = 12,
 		ZIndex = 5,
+		Visible = showPremium,
 		Parent = card,
 	})
 	addCorner(buyButton, 9)
@@ -523,9 +580,10 @@ function KeySystem:_build()
 		end
 		if self.Status.Text ~= "" and not self.Busy then
 			self:SetStatus("")
+			local focused = input:IsFocused()
 			self:_tween(inputStroke, "InputStroke", TweenInfo.new(0.12), {
-				Color = if input:IsFocused() then theme.Accent else theme.OutlineSoft,
-				Transparency = if input:IsFocused() then 0.15 else 0.72,
+				Color = focused and theme.Accent or theme.OutlineSoft,
+				Transparency = focused and 0.15 or 0.72,
 			})
 		end
 	end)
@@ -616,7 +674,7 @@ function KeySystem:_enableResponsiveScale()
 		end
 		local viewport = camera.ViewportSize
 		local fitX = (viewport.X - 24) / 420
-		local fitY = (viewport.Y - 24) / 354
+		local fitY = (viewport.Y - 24) / self.CardHeight
 		local scale = math.clamp(math.min(fitX, fitY), 0.7, 1)
 		self._responsiveScale = scale
 		if self.Visible then
@@ -676,10 +734,13 @@ function KeySystem:SetBusy(busy)
 	self.Busy = busy == true
 	self.VerifyButton.Active = not self.Busy
 	self.Input.TextEditable = not self.Busy
-	self.VerifyButton.Text = if self.Busy
-		then (self.Options.CheckingText or "Checking…")
-		else (self.Options.VerifyText or "Verify")
-	self.VerifyButton.BackgroundTransparency = if self.Busy then 0.16 else 0
+	if self.Busy then
+		self.VerifyButton.Text = self.Options.CheckingText or "Checking..."
+		self.VerifyButton.BackgroundTransparency = 0.16
+	else
+		self.VerifyButton.Text = self.Options.VerifyText or "Verify"
+		self.VerifyButton.BackgroundTransparency = 0
+	end
 end
 
 function KeySystem:Submit(keyOverride)
@@ -706,26 +767,26 @@ function KeySystem:Submit(keyOverride)
 		return
 	end
 
-	self._requestId += 1
+	self._requestId = self._requestId + 1
 	local requestId = self._requestId
 	self:SetBusy(true)
 	self:SetStatus(self.Options.CheckingMessage or "Verifying your key…", "neutral")
 
 	task.spawn(function()
-		local call = table.pack(pcall(self.Options.Validate, key, self))
+		local callOk, first, second = pcall(self.Options.Validate, key, self)
 		if self.Destroyed or requestId ~= self._requestId then
 			return
 		end
 
 		self:SetBusy(false)
-		if not call[1] then
-			warn("[MonHubKey] Validation failed: " .. tostring(call[2]))
+		if not callOk then
+			warn("[MonHubKey] Validation failed: " .. tostring(first))
 			self:SetStatus(self.Options.ErrorMessage or "Verification service is unavailable", "error")
-			safeCall(self.Options.OnFailure, key, call[2], self)
+			safeCall(self.Options.OnFailure, key, first, self)
 			return
 		end
 
-		local success, message, data = normalizeValidationResult(call[2], call[3])
+		local success, message, data = normalizeValidationResult(first, second)
 		if success then
 			self:SetStatus(message or self.Options.SuccessMessage or "Key accepted", "success")
 			self:_tween(self.InputStroke, "InputStroke", TweenInfo.new(0.16), {
@@ -814,13 +875,13 @@ function KeySystem:Hide()
 	end
 
 	self.Visible = false
-	self._requestId += 1
+	self._requestId = self._requestId + 1
 	self:SetBusy(false)
 
 	self:_tween(self.Overlay, "OverlayOpen", TweenInfo.new(0.14, Enum.EasingStyle.Quint), {
 		BackgroundTransparency = 1,
 	})
-	local closeTween = self:_tween(self.Card, "CardOpen", TweenInfo.new(0.14, Enum.EasingStyle.Quint), {
+	self:_tween(self.Card, "CardOpen", TweenInfo.new(0.14, Enum.EasingStyle.Quint), {
 		GroupTransparency = 1,
 	})
 	self:_tween(self.Shadow, "ShadowOpen", TweenInfo.new(0.14, Enum.EasingStyle.Quint), {
@@ -832,7 +893,7 @@ function KeySystem:Hide()
 		})
 	end
 
-	closeTween.Completed:Once(function()
+	task.delay(0.15, function()
 		if not self.Destroyed and not self.Visible then
 			self.Gui.Enabled = false
 		end
@@ -859,14 +920,14 @@ function KeySystem:Destroy()
 
 	self.Destroyed = true
 	self.Visible = false
-	self._requestId += 1
+	self._requestId = self._requestId + 1
 
-	for _, connection in self._connections do
+	for _, connection in ipairs(self._connections) do
 		connection:Disconnect()
 	end
 	table.clear(self._connections)
 
-	for _, tween in self._tweens do
+	for _, tween in pairs(self._tweens) do
 		tween:Cancel()
 	end
 	table.clear(self._tweens)
@@ -879,6 +940,471 @@ function KeySystem:Destroy()
 	end
 end
 
-KeySystem.Create = KeySystem.new
+local MonHubKey = {
+	Appearance = {
+		Title = "MonHub",
+		Subtitle = "Enter your key to continue",
+		Icon = "",
+		IconSize = UDim2.fromOffset(30, 30),
+	},
+	Links = {
+		GetKey = "",
+		Discord = "",
+	},
+	Storage = {
+		FileName = "MonHub_Key",
+		Remember = true,
+		AutoLoad = true,
+	},
+	Options = {
+		Keyless = nil,
+		KeylessUI = false,
+		Blur = true,
+		Draggable = true,
+		NoGetKey = false,
+	},
+	Theme = {
+		Accent = Color3.fromRGB(103, 156, 222),
+		AccentHover = Color3.fromRGB(119, 171, 235),
+		Background = Color3.fromRGB(22, 23, 28),
+		Header = Color3.fromRGB(22, 23, 28),
+		Input = Color3.fromRGB(29, 30, 37),
+		Text = Color3.fromRGB(244, 245, 248),
+		TextDim = Color3.fromRGB(150, 153, 166),
+		Success = Color3.fromRGB(92, 202, 142),
+		Error = Color3.fromRGB(237, 105, 115),
+		Warning = Color3.fromRGB(240, 180, 80),
+		StatusIdle = Color3.fromRGB(130, 135, 150),
+		Discord = Color3.fromRGB(88, 101, 242),
+		DiscordHover = Color3.fromRGB(114, 137, 218),
+		Divider = Color3.fromRGB(44, 46, 54),
+		Pending = Color3.fromRGB(60, 60, 68),
+	},
+	Callbacks = {
+		OnVerify = nil,
+		OnSuccess = nil,
+		OnFail = nil,
+		OnClose = nil,
+	},
+	Shop = {
+		Enabled = false,
+		Icon = "",
+		Title = "Get Premium Access",
+		Subtitle = "Instant delivery • 24/7 support",
+		ButtonText = "Buy",
+		Link = "",
+	},
+}
 
-return KeySystem
+local Runtime = {
+	Gate = nil,
+	Junkie = nil,
+	Validate = nil,
+	KeyLink = nil,
+}
+
+local function getEnvironment()
+	local ok, environment = pcall(function()
+		if type(getgenv) == "function" then
+			return getgenv()
+		end
+		return _G
+	end)
+	if ok and type(environment) == "table" then
+		return environment
+	end
+	return _G
+end
+
+local Environment = getEnvironment()
+
+local function storagePath()
+	local fileName = tostring(MonHubKey.Storage.FileName or "MonHub_Key")
+	fileName = string.gsub(fileName, "[/\\:%*%?\"<>|]", "_")
+	if string.sub(string.lower(fileName), -4) ~= ".txt" then
+		fileName = fileName .. ".txt"
+	end
+	return "MonHubKey/" .. fileName
+end
+
+local function canReadFiles()
+	return type(readfile) == "function" and type(isfile) == "function"
+end
+
+local function canWriteFiles()
+	return type(writefile) == "function" and type(makefolder) == "function"
+end
+
+local function ensureStorage()
+	if not canWriteFiles() then
+		return false
+	end
+	local ok = pcall(function()
+		if type(isfolder) ~= "function" or not isfolder("MonHubKey") then
+			makefolder("MonHubKey")
+		end
+	end)
+	return ok
+end
+
+local function loadSavedKey()
+	if not canReadFiles() then
+		return nil
+	end
+	local ok, key = pcall(function()
+		local path = storagePath()
+		if isfile(path) then
+			return readfile(path)
+		end
+		return nil
+	end)
+	if ok and type(key) == "string" and key ~= "" then
+		return key
+	end
+	return nil
+end
+
+local function saveKey(key)
+	if not MonHubKey.Storage.Remember or not ensureStorage() then
+		return false
+	end
+	return pcall(function()
+		writefile(storagePath(), key)
+	end)
+end
+
+local function clearSavedKey()
+	if type(delfile) ~= "function" or not canReadFiles() then
+		return false
+	end
+	return pcall(function()
+		local path = storagePath()
+		if isfile(path) then
+			delfile(path)
+		end
+	end)
+end
+
+local ERROR_MESSAGES = {
+	KEY_INVALID = "Invalid key",
+	KEY_EXPIRED = "This key has expired",
+	HWID_BANNED = "This device is banned",
+	KEY_INVALIDATED = "This key was invalidated",
+	ALREADY_USED = "This key has already been used",
+	HWID_MISMATCH = "This key is linked to another device",
+	SERVICE_NOT_FOUND = "Service not found",
+	SERVICE_MISMATCH = "This key belongs to another service",
+	PREMIUM_REQUIRED = "Premium access is required",
+	RATE_LIMITTED = "Please wait before requesting another link",
+	RATE_LIMITED = "Please wait before requesting another link",
+	ERROR = "The Junkie service is unavailable",
+}
+
+local function errorMessage(value)
+	local code = tostring(value or "KEY_INVALID")
+	return ERROR_MESSAGES[code] or code
+end
+
+local function copyText(value)
+	if type(value) ~= "string" or value == "" or type(setclipboard) ~= "function" then
+		return false
+	end
+	return pcall(setclipboard, value)
+end
+
+local function validationPassed(result)
+	if type(result) == "table" then
+		return result.valid == true or result.Valid == true or result.Success == true
+	end
+	return result == true
+end
+
+local function getJunkieLink()
+	if type(MonHubKey.Links.GetKey) == "string" and MonHubKey.Links.GetKey ~= "" then
+		Runtime.KeyLink = MonHubKey.Links.GetKey
+		return Runtime.KeyLink
+	end
+	if not Runtime.Junkie or type(Runtime.Junkie.get_key_link) ~= "function" then
+		return nil, "ERROR"
+	end
+	local ok, link, err = pcall(Runtime.Junkie.get_key_link)
+	if not ok then
+		return nil, link
+	end
+	if type(link) == "string" and link ~= "" then
+		Runtime.KeyLink = link
+		MonHubKey.Links.GetKey = link
+		return link
+	end
+	return nil, err
+end
+
+local function junkieValidate(key)
+	if not Runtime.Junkie or type(Runtime.Junkie.check_key) ~= "function" then
+		return false, "Junkie SDK is unavailable"
+	end
+	local ok, result = pcall(Runtime.Junkie.check_key, key)
+	if not ok then
+		return false, "The Junkie service is unavailable"
+	end
+	if type(result) == "table" then
+		if result.valid == true then
+			return {
+				Success = true,
+				Message = result.message or "Key accepted",
+				Data = result,
+			}
+		end
+		return {
+			Success = false,
+			Message = errorMessage(result.error or result.message),
+			Data = result,
+		}
+	end
+	return false, "Invalid response from Junkie"
+end
+
+local function themeOptions()
+	return {
+		Overlay = Color3.fromRGB(5, 7, 10),
+		Card = MonHubKey.Theme.Background,
+		Header = MonHubKey.Theme.Header,
+		CardRaised = MonHubKey.Theme.Input,
+		CardHover = MonHubKey.Theme.Input,
+		Outline = MonHubKey.Theme.Divider,
+		OutlineSoft = MonHubKey.Theme.Divider,
+		Text = MonHubKey.Theme.Text,
+		MutedText = MonHubKey.Theme.TextDim,
+		FaintText = MonHubKey.Theme.TextDim,
+		Primary = MonHubKey.Theme.Accent,
+		PrimaryHover = MonHubKey.Theme.AccentHover,
+		PrimaryText = MonHubKey.Theme.Text,
+		Accent = MonHubKey.Theme.Accent,
+		AccentHover = MonHubKey.Theme.AccentHover,
+		Success = MonHubKey.Theme.Success,
+		Danger = MonHubKey.Theme.Error,
+	}
+end
+
+local function runSuccess(key, data)
+	Environment.SCRIPT_KEY = key
+	Environment.MONHUB_KEY_CLOSED = false
+	saveKey(key)
+	safeCall(MonHubKey.Callbacks.OnSuccess, key, data)
+end
+
+local function runFailure(key, reason)
+	safeCall(MonHubKey.Callbacks.OnFail, key, reason)
+end
+
+local function buildGate(validate, keyless)
+	if Runtime.Gate and not Runtime.Gate.Destroyed then
+		Runtime.Gate:Destroy()
+	end
+	local gate
+	gate = KeySystem.new({
+		GuiName = "MonHubKey",
+		Title = MonHubKey.Appearance.Title,
+		Subtitle = keyless and "Ready to launch" or MonHubKey.Appearance.Subtitle,
+		Icon = MonHubKey.Appearance.Icon,
+		IconSize = MonHubKey.Appearance.IconSize,
+		Placeholder = keyless and "KEYLESS" or "key",
+		DefaultKey = keyless and "KEYLESS" or "",
+		VerifyText = keyless and "Launch" or "Verify",
+		CheckingText = keyless and "Launching..." or "Checking...",
+		GetKeyUrl = MonHubKey.Links.GetKey,
+		DiscordUrl = MonHubKey.Links.Discord,
+		PremiumUrl = MonHubKey.Shop.Link,
+		PremiumIcon = MonHubKey.Shop.Icon,
+		PremiumTitle = MonHubKey.Shop.Title,
+		PremiumSubtitle = MonHubKey.Shop.Subtitle,
+		BuyText = MonHubKey.Shop.ButtonText,
+		ShowPremium = MonHubKey.Shop.Enabled,
+		ShowGetKey = not keyless and not MonHubKey.Options.NoGetKey,
+		ShowDiscord = type(MonHubKey.Links.Discord) == "string" and MonHubKey.Links.Discord ~= "",
+		Blur = MonHubKey.Options.Blur,
+		Draggable = MonHubKey.Options.Draggable,
+		CloseBehavior = "Destroy",
+		Theme = themeOptions(),
+		Validate = validate,
+		OnGetKey = function(_, currentGate)
+			local link, err = getJunkieLink()
+			if link and copyText(link) then
+				currentGate:SetStatus("Get key link copied", "success")
+			else
+				currentGate:SetStatus(errorMessage(err), "error")
+			end
+		end,
+		OnDiscord = function(_, currentGate)
+			if copyText(MonHubKey.Links.Discord) then
+				currentGate:SetStatus("Discord link copied", "success")
+			else
+				currentGate:SetStatus("Discord link is unavailable", "error")
+			end
+		end,
+		OnPremium = function(_, currentGate)
+			if copyText(MonHubKey.Shop.Link) then
+				currentGate:SetStatus("Premium link copied", "success")
+			else
+				currentGate:SetStatus("Premium link is unavailable", "error")
+			end
+		end,
+		OnSuccess = function(key, data)
+			runSuccess(key, data)
+		end,
+		OnFailure = function(key, reason)
+			runFailure(key, reason)
+		end,
+		OnClose = function()
+			Environment.MONHUB_KEY_CLOSED = true
+			Environment.MonHubKeyClosed = true
+			safeCall(MonHubKey.Callbacks.OnClose)
+		end,
+	})
+	Runtime.Gate = gate
+	MonHubKey.Instance = gate
+	return gate
+end
+
+local function trySavedKey(validate)
+	if not MonHubKey.Storage.AutoLoad then
+		return false
+	end
+	local key = loadSavedKey()
+	if not key then
+		return false
+	end
+	local ok, first, second = pcall(validate, key)
+	if ok and validationPassed(first) then
+		local data = type(first) == "table" and (first.Data or first.data or first) or nil
+		runSuccess(key, data)
+		return true
+	end
+	clearSavedKey()
+	runFailure(key, ok and second or first)
+	return false
+end
+
+local function launchKeyless()
+	if MonHubKey.Options.KeylessUI == false then
+		runSuccess("KEYLESS")
+		return true
+	end
+	buildGate(function()
+		return true, "Ready"
+	end, true)
+	return true
+end
+
+function MonHubKey:LaunchJunkie(config)
+	assert(type(config) == "table" and config.Service and config.Identifier and config.Provider, "Config required: Service, Identifier, Provider")
+	Environment.MonHubKeyLoaded = true
+	Environment.MonHubKeyClosed = false
+	Environment.UI_CLOSED = false
+	if Environment.SCRIPT_KEY and Environment.SCRIPT_KEY ~= "" then
+		safeCall(self.Callbacks.OnSuccess, Environment.SCRIPT_KEY)
+		return true
+	end
+
+	local ok, sdk = pcall(function()
+		return loadstring(game:HttpGet("https://jnkie.com/sdk/library.lua"))()
+	end)
+	if not ok or type(sdk) ~= "table" then
+		warn("[MonHubKey] Failed to load Junkie SDK")
+		return nil, "Failed to load Junkie SDK"
+	end
+
+	sdk.service = config.Service
+	sdk.identifier = tostring(config.Identifier)
+	sdk.provider = config.Provider
+	Runtime.Junkie = sdk
+	Runtime.Validate = junkieValidate
+
+	if self.Links.GetKey == "" then
+		pcall(getJunkieLink)
+	end
+
+	local keyless = self.Options.Keyless == true
+	if self.Options.Keyless == nil then
+		local checkOk, result = pcall(sdk.check_key, "KEYLESS")
+		keyless = checkOk and validationPassed(result)
+	end
+	if keyless then
+		return launchKeyless()
+	end
+	if trySavedKey(junkieValidate) then
+		return true
+	end
+	return buildGate(junkieValidate, false)
+end
+
+function MonHubKey:Launch(config)
+	if type(config) == "table" and config.Service and config.Identifier and config.Provider then
+		return self:LaunchJunkie(config)
+	end
+	assert(type(self.Callbacks.OnVerify) == "function", "MonHubKey.Callbacks.OnVerify is required")
+	Environment.MonHubKeyLoaded = true
+	Environment.MonHubKeyClosed = false
+	Environment.MONHUB_KEY_CLOSED = false
+	if Environment.SCRIPT_KEY and Environment.SCRIPT_KEY ~= "" then
+		safeCall(self.Callbacks.OnSuccess, Environment.SCRIPT_KEY)
+		return true
+	end
+	Runtime.Validate = function(key)
+		return self.Callbacks.OnVerify(key)
+	end
+	if self.Options.Keyless == true then
+		return launchKeyless()
+	end
+	if trySavedKey(Runtime.Validate) then
+		return true
+	end
+	return buildGate(Runtime.Validate, false)
+end
+
+function MonHubKey:Notify(title, message, duration, iconType)
+	if not Runtime.Gate or Runtime.Gate.Destroyed then
+		return false
+	end
+	local kind = "neutral"
+	if iconType == "success" then
+		kind = "success"
+	elseif iconType == "error" or iconType == "warning" then
+		kind = "error"
+	end
+	Runtime.Gate:SetStatus((title and title ~= "" and title .. ": " or "") .. tostring(message or ""), kind)
+	if type(duration) == "number" and duration > 0 then
+		local current = Runtime.Gate
+		task.delay(duration, function()
+			if Runtime.Gate == current and not current.Destroyed then
+				current:SetStatus("")
+			end
+		end)
+	end
+	return true
+end
+
+function MonHubKey:GetSavedKey()
+	return loadSavedKey()
+end
+
+function MonHubKey:ClearSavedKey()
+	return clearSavedKey()
+end
+
+function MonHubKey:Destroy()
+	if Runtime.Gate and not Runtime.Gate.Destroyed then
+		Runtime.Gate:Destroy()
+	end
+	Runtime.Gate = nil
+	self.Instance = nil
+	Environment.MonHubKeyLoaded = false
+	Environment.MonHubKeyClosed = true
+	Environment.MONHUB_KEY_CLOSED = true
+end
+
+MonHubKey.new = KeySystem.new
+MonHubKey.Create = KeySystem.new
+Environment.MonHubKey = MonHubKey
+
+return MonHubKey
