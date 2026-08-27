@@ -4,6 +4,10 @@ MonHubKey.Appearance.Title = "MonHub"
 MonHubKey.Appearance.Icon = "rbxassetid://134697043118282"
 MonHubKey.Links.Discord = "Discord.gg/jnkie"
 MonHubKey.Storage.FileName = "MonHub_key"
+MonHubKey.Storage.Remember = true
+MonHubKey.Storage.AutoLoad = true
+MonHubKey.Options.Keyless = false
+MonHubKey.Options.KeylessUI = false
 
 MonHubKey.Theme.Accent = Color3.fromRGB(110, 60, 255)
 MonHubKey.Theme.AccentHover = Color3.fromRGB(130, 90, 255)

@@ -1112,13 +1112,6 @@ local function copyText(value)
 	return pcall(setclipboard, value)
 end
 
-local function validationPassed(result)
-	if type(result) == "table" then
-		return result.valid == true or result.Valid == true or result.Success == true
-	end
-	return result == true
-end
-
 local function getJunkieLink()
 	if type(MonHubKey.Links.GetKey) == "string" and MonHubKey.Links.GetKey ~= "" then
 		Runtime.KeyLink = MonHubKey.Links.GetKey
@@ -1253,6 +1246,7 @@ local function buildGate(validate, keyless)
 			runSuccess(key, data)
 		end,
 		OnFailure = function(key, reason)
+			clearSavedKey()
 			runFailure(key, reason)
 		end,
 		OnClose = function()
@@ -1264,24 +1258,6 @@ local function buildGate(validate, keyless)
 	Runtime.Gate = gate
 	MonHubKey.Instance = gate
 	return gate
-end
-
-local function trySavedKey(validate)
-	if not MonHubKey.Storage.AutoLoad then
-		return false
-	end
-	local key = loadSavedKey()
-	if not key then
-		return false
-	end
-	local ok, first = pcall(validate, key)
-	if ok and validationPassed(first) then
-		local data = type(first) == "table" and (first.Data or first.data or first) or nil
-		runSuccess(key, data)
-		return true
-	end
-	clearSavedKey()
-	return false
 end
 
 local function launchKeyless()
@@ -1300,6 +1276,7 @@ function MonHubKey:LaunchJunkie(config)
 	Environment.MonHubKeyLoaded = true
 	Environment.MonHubKeyClosed = false
 	Environment.MONHUB_KEY_CLOSED = false
+	Environment.SCRIPT_KEY = nil
 
 	local ok, sdk = pcall(function()
 		return loadstring(game:HttpGet("https://jnkie.com/sdk/library.lua"))()
@@ -1315,34 +1292,17 @@ function MonHubKey:LaunchJunkie(config)
 	Runtime.Junkie = sdk
 	Runtime.Validate = junkieValidate
 
-	local existingKey = Environment.SCRIPT_KEY
-	if existingKey and existingKey ~= "" then
-		if existingKey == "KEYLESS" and self.Options.Keyless ~= true then
-			Environment.SCRIPT_KEY = nil
-			clearSavedKey()
-		else
-			local existingResult = junkieValidate(existingKey)
-			if validationPassed(existingResult) then
-				local data = type(existingResult) == "table" and existingResult.Data or nil
-				runSuccess(existingKey, data)
-				return true
-			end
-			Environment.SCRIPT_KEY = nil
-			clearSavedKey()
-		end
-	end
-
-	if self.Links.GetKey == "" then
-		pcall(getJunkieLink)
-	end
-
 	if self.Options.Keyless == true then
 		return launchKeyless()
 	end
-	if trySavedKey(junkieValidate) then
-		return true
+	local gate = buildGate(junkieValidate, false)
+	if self.Storage.AutoLoad then
+		local savedKey = loadSavedKey()
+		if savedKey then
+			gate:SetKey(savedKey)
+		end
 	end
-	return buildGate(junkieValidate, false)
+	return gate
 end
 
 function MonHubKey:Launch(config)
@@ -1353,20 +1313,21 @@ function MonHubKey:Launch(config)
 	Environment.MonHubKeyLoaded = true
 	Environment.MonHubKeyClosed = false
 	Environment.MONHUB_KEY_CLOSED = false
-	if Environment.SCRIPT_KEY and Environment.SCRIPT_KEY ~= "" then
-		safeCall(self.Callbacks.OnSuccess, Environment.SCRIPT_KEY)
-		return true
-	end
+	Environment.SCRIPT_KEY = nil
 	Runtime.Validate = function(key)
 		return self.Callbacks.OnVerify(key)
 	end
 	if self.Options.Keyless == true then
 		return launchKeyless()
 	end
-	if trySavedKey(Runtime.Validate) then
-		return true
+	local gate = buildGate(Runtime.Validate, false)
+	if self.Storage.AutoLoad then
+		local savedKey = loadSavedKey()
+		if savedKey then
+			gate:SetKey(savedKey)
+		end
 	end
-	return buildGate(Runtime.Validate, false)
+	return gate
 end
 
 function MonHubKey:Notify(title, message, duration, iconType)
