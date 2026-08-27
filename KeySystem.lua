@@ -7,24 +7,148 @@ local KeySystem = {}
 KeySystem.__index = KeySystem
 
 local DEFAULT_THEME = {
-	Overlay = Color3.fromRGB(5, 7, 10),
-	Card = Color3.fromRGB(22, 23, 28),
-	Header = Color3.fromRGB(22, 23, 28),
-	CardRaised = Color3.fromRGB(29, 30, 37),
-	CardHover = Color3.fromRGB(35, 36, 44),
-	Outline = Color3.fromRGB(58, 60, 70),
-	OutlineSoft = Color3.fromRGB(44, 46, 54),
-	Text = Color3.fromRGB(244, 245, 248),
-	MutedText = Color3.fromRGB(150, 153, 166),
-	FaintText = Color3.fromRGB(105, 108, 120),
-	Primary = Color3.fromRGB(244, 245, 249),
-	PrimaryHover = Color3.fromRGB(226, 229, 237),
-	PrimaryText = Color3.fromRGB(20, 21, 25),
-	Accent = Color3.fromRGB(103, 156, 222),
-	AccentHover = Color3.fromRGB(119, 171, 235),
-	Success = Color3.fromRGB(92, 202, 142),
-	Danger = Color3.fromRGB(237, 105, 115),
+	Overlay = Color3.fromRGB(5, 6, 8),
+	Card = Color3.fromRGB(17, 19, 22),
+	Header = Color3.fromRGB(29, 32, 37),
+	Surface = Color3.fromRGB(23, 25, 29),
+	CardRaised = Color3.fromRGB(31, 34, 39),
+	CardHover = Color3.fromRGB(38, 42, 49),
+	Outline = Color3.fromRGB(52, 57, 66),
+	OutlineSoft = Color3.fromRGB(39, 43, 51),
+	Text = Color3.fromRGB(238, 240, 244),
+	MutedText = Color3.fromRGB(146, 151, 160),
+	FaintText = Color3.fromRGB(108, 113, 122),
+	Primary = Color3.fromRGB(31, 34, 39),
+	PrimaryHover = Color3.fromRGB(38, 42, 49),
+	PrimaryText = Color3.fromRGB(238, 240, 244),
+	Accent = Color3.fromRGB(133, 141, 160),
+	AccentHover = Color3.fromRGB(153, 161, 180),
+	AccentSoft = Color3.fromRGB(39, 43, 51),
+	Shadow = Color3.fromRGB(5, 6, 8),
+	Success = Color3.fromRGB(94, 194, 139),
+	Danger = Color3.fromRGB(196, 58, 76),
+	CornerRadius = 6,
 }
+
+local LUCIDE_URL = "https://raw.githubusercontent.com/mstudio45/lucide-roblox-direct/refs/heads/main/source.lua"
+local LUCIDE_CACHE = "MonHubKey/cache/lucide-2026-08-03.lua"
+local LucideState = {
+	Attempted = false,
+	Module = nil,
+}
+
+local function compileLucide(source)
+	if type(source) ~= "string" or source == "" or type(loadstring) ~= "function" then
+		return nil
+	end
+	local safeSource = "local writefile, isfolder, makefolder, getcustomasset = nil, nil, nil, nil\n" .. source
+	local ok, module = pcall(function()
+		return loadstring(safeSource)()
+	end)
+	if ok and type(module) == "table" and type(module.GetAsset) == "function" then
+		return module
+	end
+	return nil
+end
+
+local function cacheLucide(source)
+	if type(writefile) ~= "function" or type(makefolder) ~= "function" then
+		return
+	end
+	pcall(function()
+		if type(isfolder) ~= "function" or not isfolder("MonHubKey") then
+			makefolder("MonHubKey")
+		end
+		if type(isfolder) ~= "function" or not isfolder("MonHubKey/cache") then
+			makefolder("MonHubKey/cache")
+		end
+		writefile(LUCIDE_CACHE, source)
+	end)
+end
+
+local function loadLucide()
+	if LucideState.Attempted then
+		return LucideState.Module
+	end
+	LucideState.Attempted = true
+
+	if type(readfile) == "function" and type(isfile) == "function" then
+		local ok, source = pcall(function()
+			if isfile(LUCIDE_CACHE) then
+				return readfile(LUCIDE_CACHE)
+			end
+			return nil
+		end)
+		if ok then
+			LucideState.Module = compileLucide(source)
+		end
+	end
+
+	if LucideState.Module then
+		return LucideState.Module
+	end
+
+	local ok, source = pcall(function()
+		return game:HttpGet(LUCIDE_URL)
+	end)
+	if ok and type(source) == "string" and source ~= "" then
+		LucideState.Module = compileLucide(source)
+		if LucideState.Module then
+			cacheLucide(source)
+		end
+	end
+
+	return LucideState.Module
+end
+
+local function resolveIcon(value, fallback)
+	local requested = value
+	if requested == nil or requested == "" then
+		requested = fallback
+	end
+	if type(requested) == "number" or tonumber(requested) then
+		requested = "rbxassetid://" .. tostring(requested)
+	end
+	if type(requested) ~= "string" or requested == "" then
+		return nil
+	end
+
+	local lowered = string.lower(requested)
+	if string.match(lowered, "^rbxasset") or string.match(lowered, "^https?://") then
+		return {
+			Url = requested,
+			ImageRectOffset = Vector2.new(0, 0),
+			ImageRectSize = Vector2.new(0, 0),
+			Custom = true,
+		}
+	end
+
+	local icons = loadLucide()
+	if icons then
+		local ok, icon = pcall(icons.GetAsset, requested)
+		if ok and type(icon) == "table" then
+			return icon
+		end
+		if fallback and requested ~= fallback then
+			local fallbackOk, fallbackIcon = pcall(icons.GetAsset, fallback)
+			if fallbackOk and type(fallbackIcon) == "table" then
+				return fallbackIcon
+			end
+		end
+	end
+
+	return nil
+end
+
+local function applyIcon(image, data)
+	if not image or not data then
+		return false
+	end
+	image.Image = data.Url or data.Image or ""
+	image.ImageRectOffset = data.ImageRectOffset or Vector2.new(0, 0)
+	image.ImageRectSize = data.ImageRectSize or Vector2.new(0, 0)
+	return image.Image ~= ""
+end
 
 local function create(className, properties)
 	local instance = Instance.new(className)
@@ -101,6 +225,27 @@ local function addStroke(parent, color, transparency, thickness)
 	})
 end
 
+local function addSoftShadow(parent, color)
+	local shadow
+	local ok = pcall(function()
+		shadow = Instance.new("UIShadow")
+		shadow.BlurRadius = UDim.new(0, 18)
+		shadow.Color = color
+		shadow.Offset = UDim2.fromOffset(0, 4)
+		shadow.Spread = UDim2.fromOffset(1, 1)
+		shadow.Transparency = 0.42
+		shadow.ZIndex = 0
+		shadow.Parent = parent
+	end)
+	if ok then
+		return shadow
+	end
+	if shadow then
+		shadow:Destroy()
+	end
+	return nil
+end
+
 local function normalizeValidationResult(first, second)
 	if type(first) == "table" then
 		local success = first.Success == true or first.Valid == true or first.valid == true or first.success == true
@@ -171,7 +316,10 @@ function KeySystem:_build()
 	local theme = self.Theme
 	local parent = resolveParent(options.Parent)
 	local showPremium = options.ShowPremium ~= false
-	local cardHeight = showPremium and 354 or 280
+	local showGetKey = options.ShowGetKey ~= false
+	local showDiscord = options.ShowDiscord ~= false
+	local showActions = showGetKey or showDiscord
+	local cardHeight = showPremium and 326 or 250
 	self.CardHeight = cardHeight
 
 	local existing = parent:FindFirstChild(options.GuiName or "MonHubKey")
@@ -219,16 +367,16 @@ function KeySystem:_build()
 	local shadow = create("Frame", {
 		Name = "Shadow",
 		AnchorPoint = Vector2.new(0.5, 0.5),
-		BackgroundColor3 = Color3.new(0, 0, 0),
+		BackgroundColor3 = theme.Shadow,
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
-		Position = UDim2.new(0.5, 0, 0.5, 8),
-		Size = UDim2.fromOffset(432, cardHeight + 12),
+		Position = UDim2.new(0.5, 0, 0.5, 5),
+		Size = UDim2.fromOffset(426, cardHeight + 6),
 		ZIndex = 2,
 		Parent = overlay,
 	})
 	self.Shadow = shadow
-	addCorner(shadow, 18)
+	addCorner(shadow, math.min((theme.CornerRadius or 6) + 3, 10))
 
 	local card = create("CanvasGroup", {
 		Name = "Card",
@@ -242,8 +390,11 @@ function KeySystem:_build()
 		Parent = overlay,
 	})
 	self.Card = card
-	addCorner(card, 16)
-	addStroke(card, theme.Outline, 0.35, 1)
+	addCorner(card, math.min((theme.CornerRadius or 6) + 1, 8))
+	addStroke(card, theme.Outline, 0.08, 1)
+	local nativeShadow = addSoftShadow(card, theme.Shadow)
+	shadow.Visible = nativeShadow == nil
+	self.NativeShadow = nativeShadow
 
 	local cardScale = create("UIScale", {
 		Scale = 0.96,
@@ -259,76 +410,91 @@ function KeySystem:_build()
 
 	local headerSurface = create("Frame", {
 		Name = "Header",
+		Active = true,
 		BackgroundColor3 = theme.Header or theme.Card,
 		BorderSizePixel = 0,
-		Size = UDim2.new(1, 0, 0, 52),
+		Size = UDim2.new(1, 0, 0, 40),
 		ZIndex = 3,
 		Parent = card,
 	})
-	addCorner(headerSurface, 16)
+	addCorner(headerSurface, math.min((theme.CornerRadius or 6) + 1, 8))
 	create("Frame", {
 		BackgroundColor3 = theme.Header or theme.Card,
 		BorderSizePixel = 0,
-		Position = UDim2.new(0, 0, 1, -16),
-		Size = UDim2.new(1, 0, 0, 16),
+		Position = UDim2.new(0, 0, 1, -8),
+		Size = UDim2.new(1, 0, 0, 8),
 		ZIndex = 3,
 		Parent = headerSurface,
 	})
 
-	local hasIcon = type(options.Icon) == "string" and options.Icon ~= ""
+	local headerIconData = resolveIcon(options.Icon, "key")
+	local hasIcon = headerIconData ~= nil
 	if hasIcon then
-		create("ImageLabel", {
+		local headerIcon = create("ImageLabel", {
 			Name = "Icon",
+			AnchorPoint = Vector2.new(0.5, 0.5),
 			BackgroundTransparency = 1,
-			Image = options.Icon,
-			Position = UDim2.fromOffset(18, 11),
-			Size = options.IconSize or UDim2.fromOffset(30, 30),
+			ImageColor3 = theme.Accent,
+			Position = UDim2.fromOffset(20, 20),
+			Size = options.IconSize or UDim2.fromOffset(18, 18),
 			ScaleType = Enum.ScaleType.Fit,
 			ZIndex = 5,
 			Parent = card,
 		})
+		applyIcon(headerIcon, headerIconData)
 	end
 
 	local title = create("TextLabel", {
 		Name = "Title",
 		Active = true,
 		BackgroundTransparency = 1,
-		Position = UDim2.fromOffset(hasIcon and 58 or 20, 0),
-		Size = UDim2.new(1, hasIcon and -104 or -66, 0, 52),
+		Position = UDim2.fromOffset(hasIcon and 38 or 13, 0),
+		Size = UDim2.new(1, hasIcon and -78 or -53, 0, 40),
 		Font = Enum.Font.GothamBold,
 		Text = options.Title or "MonHub",
 		TextColor3 = theme.Text,
-		TextSize = 16,
+		TextSize = 14,
 		TextTruncate = Enum.TextTruncate.AtEnd,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		ZIndex = 4,
 		Parent = card,
 	})
 
-	local closeButton = create("TextButton", {
+	local closeIconData = resolveIcon("x")
+	local closeButton = create("ImageButton", {
 		Name = "Close",
 		AutoButtonColor = false,
-		BackgroundColor3 = theme.Card,
-		BackgroundTransparency = 1,
-		Position = UDim2.new(1, -48, 0, 8),
-		Size = UDim2.fromOffset(36, 36),
-		Font = Enum.Font.GothamMedium,
-		Text = "×",
-		TextColor3 = theme.MutedText,
-		TextSize = 22,
+		BackgroundColor3 = theme.CardRaised,
+		BackgroundTransparency = 0,
+		Image = "",
+		ImageColor3 = theme.MutedText,
+		Position = UDim2.new(1, -33, 0, 7),
+		Size = UDim2.fromOffset(26, 26),
 		Visible = options.AllowClose ~= false,
 		ZIndex = 5,
 		Parent = card,
 	})
-	addCorner(closeButton, 9)
-	self:_addHover(closeButton, theme.Card, theme.CardRaised, "CloseHover")
+	applyIcon(closeButton, closeIconData)
+	addCorner(closeButton, theme.CornerRadius or 6)
+	self:_addHover(closeButton, theme.CardRaised, theme.CardHover, "CloseHover")
+	self:_connect(closeButton.MouseEnter, function()
+		self:_tween(closeButton, "CloseIconHover", TweenInfo.new(0.11, Enum.EasingStyle.Quint), {
+			ImageColor3 = theme.Text,
+		})
+	end)
+	self:_connect(closeButton.MouseLeave, function()
+		self:_tween(closeButton, "CloseIconHover", TweenInfo.new(0.11, Enum.EasingStyle.Quint), {
+			ImageColor3 = theme.MutedText,
+		})
+	end)
 
 	create("Frame", {
 		Name = "HeaderDivider",
-		BackgroundColor3 = theme.OutlineSoft,
+		BackgroundColor3 = theme.AccentSoft or theme.OutlineSoft,
+		BackgroundTransparency = 0.42,
 		BorderSizePixel = 0,
-		Position = UDim2.new(0, 20, 0, 52),
-		Size = UDim2.new(1, -40, 0, 1),
+		Position = UDim2.new(0, 0, 0, 40),
+		Size = UDim2.new(1, 0, 0, 1),
 		ZIndex = 4,
 		Parent = card,
 	})
@@ -336,8 +502,8 @@ function KeySystem:_build()
 	local subtitle = create("TextLabel", {
 		Name = "Subtitle",
 		BackgroundTransparency = 1,
-		Position = UDim2.fromOffset(20, 66),
-		Size = UDim2.new(1, -40, 0, 20),
+		Position = UDim2.fromOffset(16, 55),
+		Size = UDim2.new(1, -32, 0, 18),
 		Font = Enum.Font.Gotham,
 		Text = options.Subtitle or "Enter your key to continue",
 		TextColor3 = theme.MutedText,
@@ -351,14 +517,29 @@ function KeySystem:_build()
 		Name = "InputHolder",
 		BackgroundColor3 = theme.CardRaised,
 		BorderSizePixel = 0,
-		Position = UDim2.fromOffset(20, 96),
-		Size = UDim2.new(1, -40, 0, 50),
+		Position = UDim2.fromOffset(16, 80),
+		Size = UDim2.new(1, -32, 0, 46),
 		ZIndex = 4,
 		Parent = card,
 	})
-	addCorner(inputHolder, 11)
-	local inputStroke = addStroke(inputHolder, theme.OutlineSoft, 0.72, 1)
+	addCorner(inputHolder, math.max(3, math.floor((theme.CornerRadius or 6) / 2)))
+	local inputStroke = addStroke(inputHolder, theme.Outline, 0.42, 1)
 	self.InputStroke = inputStroke
+
+	local inputIconData = resolveIcon("key-round", "key")
+	local inputIcon
+	if inputIconData then
+		inputIcon = create("ImageLabel", {
+			Name = "InputIcon",
+			BackgroundTransparency = 1,
+			ImageColor3 = theme.MutedText,
+			Position = UDim2.fromOffset(13, 15),
+			Size = UDim2.fromOffset(16, 16),
+			ZIndex = 5,
+			Parent = inputHolder,
+		})
+		applyIcon(inputIcon, inputIconData)
+	end
 
 	local input = create("TextBox", {
 		Name = "KeyInput",
@@ -366,42 +547,123 @@ function KeySystem:_build()
 		ClearTextOnFocus = false,
 		Font = Enum.Font.Gotham,
 		PlaceholderColor3 = theme.FaintText,
-		PlaceholderText = options.Placeholder or "key",
-		Position = UDim2.fromOffset(14, 0),
-		Size = UDim2.new(1, -28, 1, 0),
+		PlaceholderText = options.Placeholder or "Enter key",
+		Position = UDim2.fromOffset(inputIcon and 40 or 13, 0),
+		Size = UDim2.new(1, inputIcon and -53 or -26, 1, 0),
 		Text = options.DefaultKey or "",
 		TextColor3 = theme.Text,
 		TextSize = 13,
 		TextTruncate = Enum.TextTruncate.AtEnd,
-		TextXAlignment = Enum.TextXAlignment.Center,
+		TextXAlignment = Enum.TextXAlignment.Left,
 		ZIndex = 5,
 		Parent = inputHolder,
 	})
 	self.Input = input
+
+	local function createCenteredContent(parentObject, iconName, fallbackIcon, textValue, textColor, iconColor, textSize)
+		local content = create("Frame", {
+			Name = "Content",
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			AutomaticSize = Enum.AutomaticSize.XY,
+			BackgroundTransparency = 1,
+			Position = UDim2.fromScale(0.5, 0.5),
+			Size = UDim2.fromOffset(0, 0),
+			ZIndex = parentObject.ZIndex + 1,
+			Parent = parentObject,
+		})
+		create("UIListLayout", {
+			FillDirection = Enum.FillDirection.Horizontal,
+			HorizontalAlignment = Enum.HorizontalAlignment.Center,
+			Padding = UDim.new(0, 7),
+			SortOrder = Enum.SortOrder.LayoutOrder,
+			VerticalAlignment = Enum.VerticalAlignment.Center,
+			Parent = content,
+		})
+		local iconData = resolveIcon(iconName, fallbackIcon)
+		local icon
+		if iconData then
+			icon = create("ImageLabel", {
+				Name = "Icon",
+				BackgroundTransparency = 1,
+				ImageColor3 = iconColor,
+				LayoutOrder = 1,
+				Size = UDim2.fromOffset(15, 15),
+				ZIndex = parentObject.ZIndex + 1,
+				Parent = content,
+			})
+			applyIcon(icon, iconData)
+		end
+		local label = create("TextLabel", {
+			Name = "Label",
+			AutomaticSize = Enum.AutomaticSize.XY,
+			BackgroundTransparency = 1,
+			Font = Enum.Font.GothamBold,
+			LayoutOrder = 2,
+			Size = UDim2.fromOffset(0, 0),
+			Text = textValue,
+			TextColor3 = textColor,
+			TextSize = textSize,
+			TextWrapped = false,
+			ZIndex = parentObject.ZIndex + 1,
+			Parent = content,
+		})
+		return label, icon
+	end
 
 	local verifyButton = create("TextButton", {
 		Name = "Verify",
 		AutoButtonColor = false,
 		BackgroundColor3 = theme.Primary,
 		BorderSizePixel = 0,
-		Position = UDim2.fromOffset(20, 162),
-		Size = UDim2.new(1, -40, 0, 46),
-		Font = Enum.Font.GothamBold,
-		Text = options.VerifyText or "Verify",
-		TextColor3 = theme.PrimaryText,
-		TextSize = 14,
+		Position = UDim2.fromOffset(16, 138),
+		Size = UDim2.new(1, -32, 0, 44),
+		Text = "",
 		ZIndex = 4,
 		Parent = card,
 	})
-	addCorner(verifyButton, 10)
+	addCorner(verifyButton, math.max(3, math.floor((theme.CornerRadius or 6) / 2)))
+	local verifyStroke = addStroke(verifyButton, theme.Outline, 0.18, 1)
+	local verifyLabel, verifyIcon = createCenteredContent(
+		verifyButton,
+		"shield-check",
+		"check",
+		options.VerifyText or "Verify",
+		theme.PrimaryText,
+		theme.Accent,
+		14
+	)
 	self.VerifyButton = verifyButton
+	self.VerifyLabel = verifyLabel
+	self.VerifyIcon = verifyIcon
 	self:_addHover(verifyButton, theme.Primary, theme.PrimaryHover, "VerifyHover")
+	self:_connect(verifyButton.MouseEnter, function()
+		self:_tween(verifyStroke, "VerifyStrokeHover", TweenInfo.new(0.11, Enum.EasingStyle.Quint), {
+			Color = theme.Accent,
+			Transparency = 0.18,
+		})
+		if verifyIcon then
+			self:_tween(verifyIcon, "VerifyIconHover", TweenInfo.new(0.11, Enum.EasingStyle.Quint), {
+				ImageColor3 = theme.AccentHover,
+			})
+		end
+	end)
+	self:_connect(verifyButton.MouseLeave, function()
+		self:_tween(verifyStroke, "VerifyStrokeHover", TweenInfo.new(0.11, Enum.EasingStyle.Quint), {
+			Color = theme.Outline,
+			Transparency = 0.18,
+		})
+		if verifyIcon then
+			self:_tween(verifyIcon, "VerifyIconHover", TweenInfo.new(0.11, Enum.EasingStyle.Quint), {
+				ImageColor3 = theme.Accent,
+			})
+		end
+	end)
 
 	local status = create("TextLabel", {
 		Name = "Status",
 		BackgroundTransparency = 1,
-		Position = UDim2.fromOffset(20, 214),
-		Size = UDim2.new(1, -40, 0, 16),
+		Position = UDim2.fromOffset(16, 189),
+		Size = UDim2.new(1, -32, 0, 16),
 		Font = Enum.Font.Gotham,
 		Text = "",
 		TextColor3 = theme.MutedText,
@@ -416,8 +678,9 @@ function KeySystem:_build()
 	local actions = create("Frame", {
 		Name = "Actions",
 		BackgroundTransparency = 1,
-		Position = UDim2.fromOffset(20, 232),
-		Size = UDim2.new(1, -40, 0, 28),
+		Position = UDim2.fromOffset(16, 210),
+		Size = UDim2.new(1, -32, 0, 28),
+		Visible = showActions,
 		ZIndex = 4,
 		Parent = card,
 	})
