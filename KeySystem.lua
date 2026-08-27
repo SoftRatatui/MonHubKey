@@ -957,7 +957,7 @@ local MonHubKey = {
 		AutoLoad = true,
 	},
 	Options = {
-		Keyless = nil,
+		Keyless = false,
 		KeylessUI = false,
 		Blur = true,
 		Draggable = true,
@@ -1274,14 +1274,13 @@ local function trySavedKey(validate)
 	if not key then
 		return false
 	end
-	local ok, first, second = pcall(validate, key)
+	local ok, first = pcall(validate, key)
 	if ok and validationPassed(first) then
 		local data = type(first) == "table" and (first.Data or first.data or first) or nil
 		runSuccess(key, data)
 		return true
 	end
 	clearSavedKey()
-	runFailure(key, ok and second or first)
 	return false
 end
 
@@ -1300,11 +1299,7 @@ function MonHubKey:LaunchJunkie(config)
 	assert(type(config) == "table" and config.Service and config.Identifier and config.Provider, "Config required: Service, Identifier, Provider")
 	Environment.MonHubKeyLoaded = true
 	Environment.MonHubKeyClosed = false
-	Environment.UI_CLOSED = false
-	if Environment.SCRIPT_KEY and Environment.SCRIPT_KEY ~= "" then
-		safeCall(self.Callbacks.OnSuccess, Environment.SCRIPT_KEY)
-		return true
-	end
+	Environment.MONHUB_KEY_CLOSED = false
 
 	local ok, sdk = pcall(function()
 		return loadstring(game:HttpGet("https://jnkie.com/sdk/library.lua"))()
@@ -1320,16 +1315,28 @@ function MonHubKey:LaunchJunkie(config)
 	Runtime.Junkie = sdk
 	Runtime.Validate = junkieValidate
 
+	local existingKey = Environment.SCRIPT_KEY
+	if existingKey and existingKey ~= "" then
+		if existingKey == "KEYLESS" and self.Options.Keyless ~= true then
+			Environment.SCRIPT_KEY = nil
+			clearSavedKey()
+		else
+			local existingResult = junkieValidate(existingKey)
+			if validationPassed(existingResult) then
+				local data = type(existingResult) == "table" and existingResult.Data or nil
+				runSuccess(existingKey, data)
+				return true
+			end
+			Environment.SCRIPT_KEY = nil
+			clearSavedKey()
+		end
+	end
+
 	if self.Links.GetKey == "" then
 		pcall(getJunkieLink)
 	end
 
-	local keyless = self.Options.Keyless == true
-	if self.Options.Keyless == nil then
-		local checkOk, result = pcall(sdk.check_key, "KEYLESS")
-		keyless = checkOk and validationPassed(result)
-	end
-	if keyless then
+	if self.Options.Keyless == true then
 		return launchKeyless()
 	end
 	if trySavedKey(junkieValidate) then
