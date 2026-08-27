@@ -29,8 +29,4 @@ MonHubKey.Shop = {
 	Link = "jnkie.com",
 }
 
-MonHubKey:Launch({
-	Service = "MonHub",
-	Identifier = "1149237",
-	Provider = "MonHub",
-})
+
