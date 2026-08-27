@@ -103,7 +103,7 @@ end
 
 local function normalizeValidationResult(first, second)
 	if type(first) == "table" then
-		local success = first.Success == true or first.Valid == true or first.valid == true
+		local success = first.Success == true or first.Valid == true or first.valid == true or first.success == true
 		return success, first.Message or first.message or first.error, first.Data or first.data or first
 	end
 	return first == true, second, nil
@@ -1141,7 +1141,7 @@ local function junkieValidate(key)
 		return false, "The Junkie service is unavailable"
 	end
 	if type(result) == "table" then
-		if result.valid == true then
+		if result.valid == true or result.success == true then
 			return {
 				Success = true,
 				Message = result.message or "Key accepted",
@@ -1181,6 +1181,8 @@ end
 
 local function runSuccess(key, data)
 	Environment.SCRIPT_KEY = key
+	Environment.UI_CLOSED = false
+	Environment.MONHUB_KEY_CLOSED = false
 	Environment.MONHUB_KEY_CLOSED = false
 	saveKey(key)
 	safeCall(MonHubKey.Callbacks.OnSuccess, key, data)
@@ -1250,6 +1252,7 @@ local function buildGate(validate, keyless)
 			runFailure(key, reason)
 		end,
 		OnClose = function()
+			Environment.UI_CLOSED = true
 			Environment.MONHUB_KEY_CLOSED = true
 			Environment.MonHubKeyClosed = true
 			safeCall(MonHubKey.Callbacks.OnClose)
@@ -1263,18 +1266,22 @@ end
 local function launchKeyless()
 	if MonHubKey.Options.KeylessUI == false then
 		runSuccess("KEYLESS")
-		return true
+		return Environment.SCRIPT_KEY
 	end
 	buildGate(function()
 		return true, "Ready"
 	end, true)
-	return true
+	while not Environment.SCRIPT_KEY and not Environment.MONHUB_KEY_CLOSED do
+		task.wait(0.1)
+	end
+	return Environment.SCRIPT_KEY
 end
 
 function MonHubKey:LaunchJunkie(config)
 	assert(type(config) == "table" and config.Service and config.Identifier and config.Provider, "Config required: Service, Identifier, Provider")
 	Environment.MonHubKeyLoaded = true
 	Environment.MonHubKeyClosed = false
+	Environment.UI_CLOSED = false
 	Environment.MONHUB_KEY_CLOSED = false
 	Environment.SCRIPT_KEY = nil
 
@@ -1282,8 +1289,16 @@ function MonHubKey:LaunchJunkie(config)
 		return loadstring(game:HttpGet("https://jnkie.com/sdk/library.lua"))()
 	end)
 	if not ok or type(sdk) ~= "table" then
-		warn("[MonHubKey] Failed to load Junkie SDK")
-		return nil, "Failed to load Junkie SDK"
+		Runtime.Junkie = nil
+		Runtime.Validate = function()
+			return false, "Failed to load Junkie SDK"
+		end
+		local unavailableGate = buildGate(Runtime.Validate, false)
+		unavailableGate:SetStatus("Failed to load Junkie SDK", "error")
+		while not Environment.SCRIPT_KEY and not Environment.MONHUB_KEY_CLOSED do
+			task.wait(0.1)
+		end
+		return Environment.SCRIPT_KEY
 	end
 
 	sdk.service = config.Service
@@ -1302,7 +1317,10 @@ function MonHubKey:LaunchJunkie(config)
 			gate:SetKey(savedKey)
 		end
 	end
-	return gate
+	while not Environment.SCRIPT_KEY and not Environment.MONHUB_KEY_CLOSED do
+		task.wait(0.1)
+	end
+	return Environment.SCRIPT_KEY
 end
 
 function MonHubKey:Launch(config)
@@ -1312,6 +1330,7 @@ function MonHubKey:Launch(config)
 	assert(type(self.Callbacks.OnVerify) == "function", "MonHubKey.Callbacks.OnVerify is required")
 	Environment.MonHubKeyLoaded = true
 	Environment.MonHubKeyClosed = false
+	Environment.UI_CLOSED = false
 	Environment.MONHUB_KEY_CLOSED = false
 	Environment.SCRIPT_KEY = nil
 	Runtime.Validate = function(key)
@@ -1327,7 +1346,10 @@ function MonHubKey:Launch(config)
 			gate:SetKey(savedKey)
 		end
 	end
-	return gate
+	while not Environment.SCRIPT_KEY and not Environment.MONHUB_KEY_CLOSED do
+		task.wait(0.1)
+	end
+	return Environment.SCRIPT_KEY
 end
 
 function MonHubKey:Notify(title, message, duration, iconType)
@@ -1368,6 +1390,7 @@ function MonHubKey:Destroy()
 	self.Instance = nil
 	Environment.MonHubKeyLoaded = false
 	Environment.MonHubKeyClosed = true
+	Environment.UI_CLOSED = true
 	Environment.MONHUB_KEY_CLOSED = true
 end
 
