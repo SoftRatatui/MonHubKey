@@ -35,13 +35,9 @@ local LUCIDE_URL = "https://raw.githubusercontent.com/mstudio45/lucide-roblox-di
 local LUCIDE_CACHE = "MonHubKey/cache/lucide-2026-08-03.lua"
 local LucideState = {
 	Attempted = false,
-<<<<<<< HEAD
 	Loading = false,
 	Module = nil,
 	Requests = {},
-=======
-	Module = nil,
->>>>>>> ad68b390578f41697efa91ba22aa27c4011c0fc6
 }
 
 local function compileLucide(source)
@@ -73,18 +69,13 @@ local function cacheLucide(source)
 	end)
 end
 
-<<<<<<< HEAD
 local function loadCachedLucide()
-=======
-local function loadLucide()
->>>>>>> ad68b390578f41697efa91ba22aa27c4011c0fc6
 	if LucideState.Attempted then
 		return LucideState.Module
 	end
 	LucideState.Attempted = true
 
 	if type(readfile) == "function" and type(isfile) == "function" then
-<<<<<<< HEAD
 		for _, path in ipairs({ LUCIDE_CACHE, "Obsidian/cache/lucide-2026-08-03.lua" }) do
 			local ok, source = pcall(function()
 				if isfile(path) then
@@ -162,34 +153,6 @@ local function startLucideLoad()
 		LucideState.Requests = {}
 		LucideState.Loading = false
 	end)
-=======
-		local ok, source = pcall(function()
-			if isfile(LUCIDE_CACHE) then
-				return readfile(LUCIDE_CACHE)
-			end
-			return nil
-		end)
-		if ok then
-			LucideState.Module = compileLucide(source)
-		end
-	end
-
-	if LucideState.Module then
-		return LucideState.Module
-	end
-
-	local ok, source = pcall(function()
-		return game:HttpGet(LUCIDE_URL)
-	end)
-	if ok and type(source) == "string" and source ~= "" then
-		LucideState.Module = compileLucide(source)
-		if LucideState.Module then
-			cacheLucide(source)
-		end
-	end
-
-	return LucideState.Module
->>>>>>> ad68b390578f41697efa91ba22aa27c4011c0fc6
 end
 
 local function resolveIcon(value, fallback)
@@ -214,7 +177,6 @@ local function resolveIcon(value, fallback)
 		}
 	end
 
-<<<<<<< HEAD
 	loadCachedLucide()
 	local icon = iconFromModule(requested, fallback)
 	if icon then
@@ -227,20 +189,6 @@ local function resolveIcon(value, fallback)
 			Name = requested,
 			Fallback = fallback,
 		}
-=======
-	local icons = loadLucide()
-	if icons then
-		local ok, icon = pcall(icons.GetAsset, requested)
-		if ok and type(icon) == "table" then
-			return icon
-		end
-		if fallback and requested ~= fallback then
-			local fallbackOk, fallbackIcon = pcall(icons.GetAsset, fallback)
-			if fallbackOk and type(fallbackIcon) == "table" then
-				return fallbackIcon
-			end
-		end
->>>>>>> ad68b390578f41697efa91ba22aa27c4011c0fc6
 	end
 
 	return nil
@@ -250,7 +198,6 @@ local function applyIcon(image, data)
 	if not image or not data then
 		return false
 	end
-<<<<<<< HEAD
 	if data.Pending then
 		local icon = iconFromModule(data.Name, data.Fallback)
 		if icon then
@@ -407,12 +354,6 @@ local function startMainFontLoad()
 		end
 		FontState.Objects = {}
 	end)
-=======
-	image.Image = data.Url or data.Image or ""
-	image.ImageRectOffset = data.ImageRectOffset or Vector2.new(0, 0)
-	image.ImageRectSize = data.ImageRectSize or Vector2.new(0, 0)
-	return image.Image ~= ""
->>>>>>> ad68b390578f41697efa91ba22aa27c4011c0fc6
 end
 
 local function create(className, properties)
@@ -741,7 +682,6 @@ function KeySystem:_build()
 		ZIndex = 5,
 		Parent = card,
 	})
-<<<<<<< HEAD
 	local closeFallback
 	if not closeIconData or closeIconData.Pending then
 		closeFallback = registerFont(create("TextLabel", {
@@ -762,8 +702,6 @@ function KeySystem:_build()
 			end
 		end
 	end
-=======
->>>>>>> ad68b390578f41697efa91ba22aa27c4011c0fc6
 	applyIcon(closeButton, closeIconData)
 	addCorner(closeButton, theme.CornerRadius or 6)
 	self:_addHover(closeButton, theme.CardRaised, theme.CardHover, "CloseHover")
@@ -771,27 +709,21 @@ function KeySystem:_build()
 		self:_tween(closeButton, "CloseIconHover", TweenInfo.new(0.11, Enum.EasingStyle.Quint), {
 			ImageColor3 = theme.Text,
 		})
-<<<<<<< HEAD
 		if closeFallback then
 			self:_tween(closeFallback, "CloseFallbackHover", TweenInfo.new(0.11, Enum.EasingStyle.Quint), {
 				TextColor3 = theme.Text,
 			})
 		end
-=======
->>>>>>> ad68b390578f41697efa91ba22aa27c4011c0fc6
 	end)
 	self:_connect(closeButton.MouseLeave, function()
 		self:_tween(closeButton, "CloseIconHover", TweenInfo.new(0.11, Enum.EasingStyle.Quint), {
 			ImageColor3 = theme.MutedText,
 		})
-<<<<<<< HEAD
 		if closeFallback then
 			self:_tween(closeFallback, "CloseFallbackHover", TweenInfo.new(0.11, Enum.EasingStyle.Quint), {
 				TextColor3 = theme.MutedText,
 			})
 		end
-=======
->>>>>>> ad68b390578f41697efa91ba22aa27c4011c0fc6
 	end)
 
 	create("Frame", {
@@ -915,10 +847,7 @@ function KeySystem:_build()
 			ZIndex = parentObject.ZIndex + 1,
 			Parent = content,
 		})
-<<<<<<< HEAD
 		registerFont(label, true)
-=======
->>>>>>> ad68b390578f41697efa91ba22aa27c4011c0fc6
 		return label, icon
 	end
 
@@ -947,11 +876,8 @@ function KeySystem:_build()
 	self.VerifyButton = verifyButton
 	self.VerifyLabel = verifyLabel
 	self.VerifyIcon = verifyIcon
-<<<<<<< HEAD
 	self.VerifyIdleIconData = resolveIcon("shield-check", "check")
 	self.VerifyLoadingIconData = resolveIcon("loader-circle", "loader")
-=======
->>>>>>> ad68b390578f41697efa91ba22aa27c4011c0fc6
 	self:_addHover(verifyButton, theme.Primary, theme.PrimaryHover, "VerifyHover")
 	self:_connect(verifyButton.MouseEnter, function()
 		self:_tween(verifyStroke, "VerifyStrokeHover", TweenInfo.new(0.11, Enum.EasingStyle.Quint), {
@@ -1883,10 +1809,6 @@ end
 local function runSuccess(key, data)
 	Environment.SCRIPT_KEY = key
 	Environment.UI_CLOSED = false
-<<<<<<< HEAD
-=======
-	Environment.MONHUB_KEY_CLOSED = false
->>>>>>> ad68b390578f41697efa91ba22aa27c4011c0fc6
 	Environment.MONHUB_KEY_CLOSED = false
 	saveKey(key)
 	safeCall(MonHubKey.Callbacks.OnSuccess, key, data)
