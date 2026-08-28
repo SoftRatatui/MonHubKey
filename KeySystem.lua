@@ -525,8 +525,15 @@ function KeySystem:_build()
 	local showPremium = options.ShowPremium ~= false
 	local showGetKey = options.ShowGetKey ~= false
 	local showDiscord = options.ShowDiscord ~= false
-	local showActions = showGetKey or showDiscord
-	local cardHeight = showPremium and 326 or 250
+	local footerY
+	if showGetKey then
+		footerY = showDiscord and 294 or 266
+	elseif showDiscord then
+		footerY = 250
+	else
+		footerY = 218
+	end
+	local cardHeight = showPremium and footerY + 76 or footerY
 	self.CardHeight = cardHeight
 
 	local existing = parent:FindFirstChild(options.GuiName or "MonHubKey")
@@ -919,12 +926,49 @@ function KeySystem:_build()
 	registerFont(status, false)
 	self.Status = status
 
+	local getKeyButton = create("TextButton", {
+		Name = "GetKey",
+		AutoButtonColor = false,
+		BackgroundColor3 = theme.Primary,
+		BorderSizePixel = 0,
+		Position = UDim2.fromOffset(16, 210),
+		Size = UDim2.new(1, -32, 0, 44),
+		Text = "",
+		Visible = showGetKey,
+		ZIndex = 4,
+		Parent = card,
+	})
+	addCorner(getKeyButton, math.max(3, math.floor((theme.CornerRadius or 6) / 2)))
+	local getKeyStroke = addStroke(getKeyButton, theme.Outline, 0.18, 1)
+	createCenteredContent(
+		getKeyButton,
+		nil,
+		nil,
+		options.GetKeyText or "Get key",
+		theme.PrimaryText,
+		theme.Accent,
+		14
+	)
+	self:_addHover(getKeyButton, theme.Primary, theme.PrimaryHover, "GetKeyHover")
+	self:_connect(getKeyButton.MouseEnter, function()
+		self:_tween(getKeyStroke, "GetKeyStrokeHover", TweenInfo.new(0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			Color = theme.Accent,
+			Transparency = 0.18,
+		})
+	end)
+	self:_connect(getKeyButton.MouseLeave, function()
+		self:_tween(getKeyStroke, "GetKeyStrokeHover", TweenInfo.new(0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			Color = theme.Outline,
+			Transparency = 0.18,
+		})
+	end)
+
 	local actions = create("Frame", {
 		Name = "Actions",
 		BackgroundTransparency = 1,
-		Position = UDim2.fromOffset(16, 210),
+		Position = UDim2.fromOffset(16, showGetKey and 258 or 210),
 		Size = UDim2.new(1, -32, 0, 28),
-		Visible = showActions,
+		Visible = showDiscord,
 		ZIndex = 4,
 		Parent = card,
 	})
@@ -1000,9 +1044,7 @@ function KeySystem:_build()
 		return button
 	end
 
-	local getKeyButton = makeAction("GetKey", options.GetKeyText or "Get key", 1)
-	local discordButton = makeAction("Discord", options.DiscordText or "Discord", 2)
-	getKeyButton.Visible = showGetKey
+	local discordButton = makeAction("Discord", options.DiscordText or "Discord", 1)
 	discordButton.Visible = showDiscord
 	self.GetKeyButton = getKeyButton
 	self.DiscordButton = discordButton
@@ -1012,7 +1054,7 @@ function KeySystem:_build()
 		BackgroundColor3 = theme.AccentSoft or theme.OutlineSoft,
 		BackgroundTransparency = 0.42,
 		BorderSizePixel = 0,
-		Position = UDim2.new(0, 16, 0, 250),
+		Position = UDim2.new(0, 16, 0, footerY),
 		Size = UDim2.new(1, -32, 0, 1),
 		Visible = showPremium,
 		ZIndex = 4,
@@ -1026,7 +1068,7 @@ function KeySystem:_build()
 			Name = "PremiumIcon",
 			BackgroundTransparency = 1,
 			ImageColor3 = theme.Accent,
-			Position = UDim2.fromOffset(17, 271),
+			Position = UDim2.fromOffset(17, footerY + 21),
 			Size = UDim2.fromOffset(18, 18),
 			ScaleType = Enum.ScaleType.Fit,
 			Visible = showPremium,
@@ -1039,7 +1081,7 @@ function KeySystem:_build()
 	local premiumTitle = create("TextLabel", {
 		Name = "PremiumTitle",
 		BackgroundTransparency = 1,
-		Position = UDim2.fromOffset(hasPremiumIcon and 47 or 16, 261),
+		Position = UDim2.fromOffset(hasPremiumIcon and 47 or 16, footerY + 11),
 		Size = UDim2.new(1, hasPremiumIcon and -171 or -140, 0, 19),
 		Font = Enum.Font.GothamBold,
 		Text = options.PremiumTitle or "Get Premium",
@@ -1055,7 +1097,7 @@ function KeySystem:_build()
 	local premiumSubtitle = create("TextLabel", {
 		Name = "PremiumSubtitle",
 		BackgroundTransparency = 1,
-		Position = UDim2.fromOffset(hasPremiumIcon and 47 or 16, 281),
+		Position = UDim2.fromOffset(hasPremiumIcon and 47 or 16, footerY + 31),
 		Size = UDim2.new(1, hasPremiumIcon and -171 or -140, 0, 18),
 		Font = Enum.Font.Gotham,
 		Text = options.PremiumSubtitle or "Instant delivery · 24/7 support",
@@ -1075,7 +1117,7 @@ function KeySystem:_build()
 		AutoButtonColor = false,
 		BackgroundColor3 = theme.CardRaised,
 		BorderSizePixel = 0,
-		Position = UDim2.new(1, -16, 0, 264),
+		Position = UDim2.new(1, -16, 0, footerY + 14),
 		Size = UDim2.fromOffset(92, 34),
 		Text = "",
 		ZIndex = 5,
