@@ -2,6 +2,7 @@ local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local Lighting = game:GetService("Lighting")
+local HttpService = game:GetService("HttpService")
 
 local KeySystem = {}
 KeySystem.__index = KeySystem
@@ -34,7 +35,13 @@ local LUCIDE_URL = "https://raw.githubusercontent.com/mstudio45/lucide-roblox-di
 local LUCIDE_CACHE = "MonHubKey/cache/lucide-2026-08-03.lua"
 local LucideState = {
 	Attempted = false,
+<<<<<<< HEAD
+	Loading = false,
 	Module = nil,
+	Requests = {},
+=======
+	Module = nil,
+>>>>>>> ad68b390578f41697efa91ba22aa27c4011c0fc6
 }
 
 local function compileLucide(source)
@@ -66,13 +73,96 @@ local function cacheLucide(source)
 	end)
 end
 
+<<<<<<< HEAD
+local function loadCachedLucide()
+=======
 local function loadLucide()
+>>>>>>> ad68b390578f41697efa91ba22aa27c4011c0fc6
 	if LucideState.Attempted then
 		return LucideState.Module
 	end
 	LucideState.Attempted = true
 
 	if type(readfile) == "function" and type(isfile) == "function" then
+<<<<<<< HEAD
+		for _, path in ipairs({ LUCIDE_CACHE, "Obsidian/cache/lucide-2026-08-03.lua" }) do
+			local ok, source = pcall(function()
+				if isfile(path) then
+					return readfile(path)
+				end
+				return nil
+			end)
+			if ok then
+				LucideState.Module = compileLucide(source)
+			end
+			if LucideState.Module then
+				break
+			end
+		end
+	end
+	return LucideState.Module
+end
+
+local function iconFromModule(requested, fallback)
+	local icons = LucideState.Module
+	if not icons then
+		return nil
+	end
+	local ok, icon = pcall(icons.GetAsset, requested)
+	if ok and type(icon) == "table" then
+		return icon
+	end
+	if fallback and requested ~= fallback then
+		local fallbackOk, fallbackIcon = pcall(icons.GetAsset, fallback)
+		if fallbackOk and type(fallbackIcon) == "table" then
+			return fallbackIcon
+		end
+	end
+	return nil
+end
+
+local function applyResolvedIcon(image, data)
+	if not image or not data then
+		return false
+	end
+	local ok = pcall(function()
+		image.Image = data.Url or data.Image or ""
+		image.ImageRectOffset = data.ImageRectOffset or Vector2.new(0, 0)
+		image.ImageRectSize = data.ImageRectSize or Vector2.new(0, 0)
+	end)
+	return ok and image.Image ~= ""
+end
+
+local function startLucideLoad()
+	if LucideState.Module or LucideState.Loading then
+		return
+	end
+	LucideState.Loading = true
+	task.spawn(function()
+		local ok, source = pcall(function()
+			return game:HttpGet(LUCIDE_URL)
+		end)
+		if ok and type(source) == "string" and source ~= "" then
+			LucideState.Module = compileLucide(source)
+			if LucideState.Module then
+				cacheLucide(source)
+			end
+		end
+		if LucideState.Module then
+			for _, request in ipairs(LucideState.Requests) do
+				local icon = iconFromModule(request.Name, request.Fallback)
+				if icon then
+					applyResolvedIcon(request.Image, icon)
+					if type(request.OnLoaded) == "function" then
+						pcall(request.OnLoaded)
+					end
+				end
+			end
+		end
+		LucideState.Requests = {}
+		LucideState.Loading = false
+	end)
+=======
 		local ok, source = pcall(function()
 			if isfile(LUCIDE_CACHE) then
 				return readfile(LUCIDE_CACHE)
@@ -99,6 +189,7 @@ local function loadLucide()
 	end
 
 	return LucideState.Module
+>>>>>>> ad68b390578f41697efa91ba22aa27c4011c0fc6
 end
 
 local function resolveIcon(value, fallback)
@@ -123,6 +214,20 @@ local function resolveIcon(value, fallback)
 		}
 	end
 
+<<<<<<< HEAD
+	loadCachedLucide()
+	local icon = iconFromModule(requested, fallback)
+	if icon then
+		return icon
+	end
+	if not LucideState.Module then
+		startLucideLoad()
+		return {
+			Pending = true,
+			Name = requested,
+			Fallback = fallback,
+		}
+=======
 	local icons = loadLucide()
 	if icons then
 		local ok, icon = pcall(icons.GetAsset, requested)
@@ -135,6 +240,7 @@ local function resolveIcon(value, fallback)
 				return fallbackIcon
 			end
 		end
+>>>>>>> ad68b390578f41697efa91ba22aa27c4011c0fc6
 	end
 
 	return nil
@@ -144,10 +250,169 @@ local function applyIcon(image, data)
 	if not image or not data then
 		return false
 	end
+<<<<<<< HEAD
+	if data.Pending then
+		local icon = iconFromModule(data.Name, data.Fallback)
+		if icon then
+			local applied = applyResolvedIcon(image, icon)
+			if applied and type(data.OnLoaded) == "function" then
+				pcall(data.OnLoaded)
+			end
+			return applied
+		end
+		table.insert(LucideState.Requests, {
+			Image = image,
+			Name = data.Name,
+			Fallback = data.Fallback,
+			OnLoaded = data.OnLoaded,
+		})
+		return false
+	end
+	return applyResolvedIcon(image, data)
+end
+
+local MAIN_FONT_URL = "https://raw.githubusercontent.com/SoftRatatui/Obsidian-main/main/Obsidian-main/assets/Inter-Bold.ttf?monhub=0.0.1-release-6-font-default"
+local MAIN_FONT_PATH = "MonHub/assets/MonHubInterBold.ttf"
+local MAIN_FONT_METADATA_PATH = "MonHub/assets/MonHubInterBold.json"
+local FontState = {
+	Attempted = false,
+	Face = nil,
+	Objects = {},
+}
+
+local function fontAssetFunction()
+	if type(getcustomasset) == "function" then
+		return getcustomasset
+	end
+	if type(getsynasset) == "function" then
+		return getsynasset
+	end
+	return nil
+end
+
+local function isFontData(data)
+	if type(data) ~= "string" or #data < 4096 then
+		return false
+	end
+	local header = string.sub(data, 1, 4)
+	return header == "\0\1\0\0" or header == "OTTO" or header == "true" or header == "ttcf" or header == "wOFF"
+end
+
+local function ensureMainFontFolders()
+	if type(makefolder) ~= "function" then
+		return false
+	end
+	local ok = pcall(function()
+		if type(isfolder) ~= "function" or not isfolder("MonHub") then
+			makefolder("MonHub")
+		end
+		if type(isfolder) ~= "function" or not isfolder("MonHub/assets") then
+			makefolder("MonHub/assets")
+		end
+	end)
+	return ok
+end
+
+local function loadMainFont()
+	local assetFunction = fontAssetFunction()
+	if not assetFunction or type(writefile) ~= "function" or type(isfile) ~= "function" then
+		return nil
+	end
+	if not ensureMainFontFolders() then
+		return nil
+	end
+
+	local fontData
+	if isfile(MAIN_FONT_PATH) and type(readfile) == "function" then
+		local readOk, cached = pcall(readfile, MAIN_FONT_PATH)
+		if readOk and isFontData(cached) then
+			fontData = cached
+		end
+	end
+	if not fontData then
+		local downloadOk, downloaded = pcall(function()
+			return game:HttpGet(MAIN_FONT_URL)
+		end)
+		if not downloadOk or not isFontData(downloaded) then
+			return nil
+		end
+		local writeOk = pcall(writefile, MAIN_FONT_PATH, downloaded)
+		if not writeOk then
+			return nil
+		end
+	end
+
+	local assetOk, fontAsset = pcall(assetFunction, MAIN_FONT_PATH)
+	if not assetOk or type(fontAsset) ~= "string" then
+		return nil
+	end
+	local metadata = HttpService:JSONEncode({
+		name = "MonHubInterBold",
+		faces = {
+			{
+				name = "Regular",
+				weight = 700,
+				style = "normal",
+				assetId = fontAsset,
+			},
+		},
+	})
+	local metadataOk = pcall(writefile, MAIN_FONT_METADATA_PATH, metadata)
+	if not metadataOk then
+		return nil
+	end
+	local metadataAssetOk, metadataAsset = pcall(assetFunction, MAIN_FONT_METADATA_PATH)
+	if not metadataAssetOk or type(metadataAsset) ~= "string" then
+		return nil
+	end
+	local faceOk, face = pcall(Font.new, metadataAsset, Enum.FontWeight.Bold, Enum.FontStyle.Normal)
+	if faceOk and typeof(face) == "Font" then
+		return face
+	end
+	return nil
+end
+
+local function registerFont(object, bold)
+	if not object then
+		return object
+	end
+	local fallback = bold and Enum.Font.GothamBold or Enum.Font.Gotham
+	pcall(function()
+		object.FontFace = Font.fromEnum(fallback)
+	end)
+	if FontState.Face then
+		pcall(function()
+			object.FontFace = FontState.Face
+		end)
+	else
+		table.insert(FontState.Objects, object)
+	end
+	return object
+end
+
+local function startMainFontLoad()
+	if FontState.Attempted or FontState.Face then
+		return
+	end
+	FontState.Attempted = true
+	task.spawn(function()
+		local face = loadMainFont()
+		if face then
+			FontState.Face = face
+			for _, object in ipairs(FontState.Objects) do
+				pcall(function()
+					object.FontFace = face
+				end)
+			end
+		end
+		FontState.Objects = {}
+	end)
+=======
 	image.Image = data.Url or data.Image or ""
 	image.ImageRectOffset = data.ImageRectOffset or Vector2.new(0, 0)
 	image.ImageRectSize = data.ImageRectSize or Vector2.new(0, 0)
 	return image.Image ~= ""
+>>>>>>> ad68b390578f41697efa91ba22aa27c4011c0fc6
 end
 
 local function create(className, properties)
@@ -269,6 +534,7 @@ function KeySystem.new(options)
 
 	self:_build()
 	self:Show()
+	startMainFontLoad()
 
 	return self
 end
@@ -296,7 +562,7 @@ function KeySystem:_addHover(button, normalColor, hoverColor, key)
 		if self.Destroyed or not button.Active then
 			return
 		end
-		self:_tween(button, key, TweenInfo.new(0.12, Enum.EasingStyle.Quint), {
+		self:_tween(button, key, TweenInfo.new(0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
 			BackgroundColor3 = hoverColor,
 		})
 	end)
@@ -305,7 +571,7 @@ function KeySystem:_addHover(button, normalColor, hoverColor, key)
 		if self.Destroyed then
 			return
 		end
-		self:_tween(button, key, TweenInfo.new(0.12, Enum.EasingStyle.Quint), {
+		self:_tween(button, key, TweenInfo.new(0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
 			BackgroundColor3 = normalColor,
 		})
 	end)
@@ -459,6 +725,7 @@ function KeySystem:_build()
 		ZIndex = 4,
 		Parent = card,
 	})
+	registerFont(title, true)
 
 	local closeIconData = resolveIcon("x")
 	local closeButton = create("ImageButton", {
@@ -474,6 +741,29 @@ function KeySystem:_build()
 		ZIndex = 5,
 		Parent = card,
 	})
+<<<<<<< HEAD
+	local closeFallback
+	if not closeIconData or closeIconData.Pending then
+		closeFallback = registerFont(create("TextLabel", {
+			BackgroundTransparency = 1,
+			Font = Enum.Font.GothamMedium,
+			Size = UDim2.fromScale(1, 1),
+			Text = "X",
+			TextColor3 = theme.MutedText,
+			TextSize = 12,
+			ZIndex = 6,
+			Parent = closeButton,
+		}), false)
+	end
+	if closeIconData and closeIconData.Pending then
+		closeIconData.OnLoaded = function()
+			if closeFallback then
+				closeFallback.Visible = false
+			end
+		end
+	end
+=======
+>>>>>>> ad68b390578f41697efa91ba22aa27c4011c0fc6
 	applyIcon(closeButton, closeIconData)
 	addCorner(closeButton, theme.CornerRadius or 6)
 	self:_addHover(closeButton, theme.CardRaised, theme.CardHover, "CloseHover")
@@ -481,11 +771,27 @@ function KeySystem:_build()
 		self:_tween(closeButton, "CloseIconHover", TweenInfo.new(0.11, Enum.EasingStyle.Quint), {
 			ImageColor3 = theme.Text,
 		})
+<<<<<<< HEAD
+		if closeFallback then
+			self:_tween(closeFallback, "CloseFallbackHover", TweenInfo.new(0.11, Enum.EasingStyle.Quint), {
+				TextColor3 = theme.Text,
+			})
+		end
+=======
+>>>>>>> ad68b390578f41697efa91ba22aa27c4011c0fc6
 	end)
 	self:_connect(closeButton.MouseLeave, function()
 		self:_tween(closeButton, "CloseIconHover", TweenInfo.new(0.11, Enum.EasingStyle.Quint), {
 			ImageColor3 = theme.MutedText,
 		})
+<<<<<<< HEAD
+		if closeFallback then
+			self:_tween(closeFallback, "CloseFallbackHover", TweenInfo.new(0.11, Enum.EasingStyle.Quint), {
+				TextColor3 = theme.MutedText,
+			})
+		end
+=======
+>>>>>>> ad68b390578f41697efa91ba22aa27c4011c0fc6
 	end)
 
 	create("Frame", {
@@ -512,6 +818,7 @@ function KeySystem:_build()
 		ZIndex = 4,
 		Parent = card,
 	})
+	registerFont(subtitle, false)
 
 	local inputHolder = create("Frame", {
 		Name = "InputHolder",
@@ -558,6 +865,7 @@ function KeySystem:_build()
 		ZIndex = 5,
 		Parent = inputHolder,
 	})
+	registerFont(input, false)
 	self.Input = input
 
 	local function createCenteredContent(parentObject, iconName, fallbackIcon, textValue, textColor, iconColor, textSize)
@@ -607,6 +915,10 @@ function KeySystem:_build()
 			ZIndex = parentObject.ZIndex + 1,
 			Parent = content,
 		})
+<<<<<<< HEAD
+		registerFont(label, true)
+=======
+>>>>>>> ad68b390578f41697efa91ba22aa27c4011c0fc6
 		return label, icon
 	end
 
@@ -635,6 +947,11 @@ function KeySystem:_build()
 	self.VerifyButton = verifyButton
 	self.VerifyLabel = verifyLabel
 	self.VerifyIcon = verifyIcon
+<<<<<<< HEAD
+	self.VerifyIdleIconData = resolveIcon("shield-check", "check")
+	self.VerifyLoadingIconData = resolveIcon("loader-circle", "loader")
+=======
+>>>>>>> ad68b390578f41697efa91ba22aa27c4011c0fc6
 	self:_addHover(verifyButton, theme.Primary, theme.PrimaryHover, "VerifyHover")
 	self:_connect(verifyButton.MouseEnter, function()
 		self:_tween(verifyStroke, "VerifyStrokeHover", TweenInfo.new(0.11, Enum.EasingStyle.Quint), {
@@ -673,6 +990,7 @@ function KeySystem:_build()
 		ZIndex = 4,
 		Parent = card,
 	})
+	registerFont(status, false)
 	self.Status = status
 
 	local actions = create("Frame", {
@@ -684,7 +1002,7 @@ function KeySystem:_build()
 		ZIndex = 4,
 		Parent = card,
 	})
-	local actionsLayout = create("UIListLayout", {
+	create("UIListLayout", {
 		FillDirection = Enum.FillDirection.Horizontal,
 		HorizontalAlignment = Enum.HorizontalAlignment.Center,
 		Padding = UDim.new(0, 6),
@@ -701,78 +1019,102 @@ function KeySystem:_build()
 			BackgroundColor3 = theme.Card,
 			BackgroundTransparency = 1,
 			LayoutOrder = order,
-			Size = UDim2.fromOffset(88, 28),
-			Font = Enum.Font.Gotham,
-			Text = text,
-			TextColor3 = theme.MutedText,
-			TextSize = 12,
+			Size = UDim2.fromOffset(0, 28),
+			Text = "",
 			ZIndex = 5,
 			Parent = actions,
 		})
 		create("UIPadding", {
-			PaddingLeft = UDim.new(0, 10),
-			PaddingRight = UDim.new(0, 10),
+			PaddingLeft = UDim.new(0, 9),
+			PaddingRight = UDim.new(0, 9),
 			Parent = button,
 		})
-		addCorner(button, 7)
+		create("UIListLayout", {
+			FillDirection = Enum.FillDirection.Horizontal,
+			HorizontalAlignment = Enum.HorizontalAlignment.Center,
+			Padding = UDim.new(0, 6),
+			SortOrder = Enum.SortOrder.LayoutOrder,
+			VerticalAlignment = Enum.VerticalAlignment.Center,
+			Parent = button,
+		})
+		local actionLabel = create("TextLabel", {
+			Name = "Label",
+			AutomaticSize = Enum.AutomaticSize.XY,
+			BackgroundTransparency = 1,
+			Font = Enum.Font.Gotham,
+			LayoutOrder = 1,
+			Size = UDim2.fromOffset(0, 0),
+			Text = text,
+			TextColor3 = theme.MutedText,
+			TextSize = 12,
+			TextWrapped = false,
+			ZIndex = 6,
+			Parent = button,
+		})
+		registerFont(actionLabel, false)
+		addCorner(button, theme.CornerRadius or 6)
 		self:_connect(button.MouseEnter, function()
-			self:_tween(button, name .. "Hover", TweenInfo.new(0.12), {
+			self:_tween(button, name .. "Hover", TweenInfo.new(0.11, Enum.EasingStyle.Quint), {
 				BackgroundTransparency = 0,
 				BackgroundColor3 = theme.CardRaised,
+			})
+			self:_tween(actionLabel, name .. "LabelHover", TweenInfo.new(0.11, Enum.EasingStyle.Quint), {
 				TextColor3 = theme.Text,
 			})
 		end)
 		self:_connect(button.MouseLeave, function()
-			self:_tween(button, name .. "Hover", TweenInfo.new(0.12), {
+			self:_tween(button, name .. "Hover", TweenInfo.new(0.11, Enum.EasingStyle.Quint), {
 				BackgroundTransparency = 1,
 				BackgroundColor3 = theme.Card,
+			})
+			self:_tween(actionLabel, name .. "LabelHover", TweenInfo.new(0.11, Enum.EasingStyle.Quint), {
 				TextColor3 = theme.MutedText,
 			})
 		end)
 		return button
 	end
 
-	local getKeyButton = makeAction("GetKey", "⌕  " .. (options.GetKeyText or "Get key"), 1)
-	local discordButton = makeAction("Discord", "◯  " .. (options.DiscordText or "Discord"), 2)
-	getKeyButton.Visible = options.ShowGetKey ~= false
-	discordButton.Visible = options.ShowDiscord ~= false
+	local getKeyButton = makeAction("GetKey", options.GetKeyText or "Get key", 1)
+	local discordButton = makeAction("Discord", options.DiscordText or "Discord", 2)
+	getKeyButton.Visible = showGetKey
+	discordButton.Visible = showDiscord
 	self.GetKeyButton = getKeyButton
 	self.DiscordButton = discordButton
 
 	create("Frame", {
 		Name = "FooterDivider",
-		BackgroundColor3 = theme.OutlineSoft,
+		BackgroundColor3 = theme.AccentSoft or theme.OutlineSoft,
+		BackgroundTransparency = 0.42,
 		BorderSizePixel = 0,
-		Position = UDim2.new(0, 20, 0, 270),
-		Size = UDim2.new(1, -40, 0, 1),
+		Position = UDim2.new(0, 16, 0, 250),
+		Size = UDim2.new(1, -32, 0, 1),
+		Visible = showPremium,
 		ZIndex = 4,
 		Parent = card,
 	})
 
-	local premiumIcon = options.PremiumIcon
-	if (type(premiumIcon) ~= "string" or premiumIcon == "") and hasIcon then
-		premiumIcon = options.Icon
-	end
-	local hasPremiumIcon = type(premiumIcon) == "string" and premiumIcon ~= ""
+	local premiumIconData = resolveIcon(options.PremiumIcon, "gem")
+	local hasPremiumIcon = premiumIconData ~= nil
 	if hasPremiumIcon then
-		create("ImageLabel", {
+		local premiumIcon = create("ImageLabel", {
 			Name = "PremiumIcon",
 			BackgroundTransparency = 1,
-			Image = premiumIcon,
-			Position = UDim2.fromOffset(18, 285),
-			Size = UDim2.fromOffset(32, 32),
+			ImageColor3 = theme.Accent,
+			Position = UDim2.fromOffset(17, 271),
+			Size = UDim2.fromOffset(18, 18),
 			ScaleType = Enum.ScaleType.Fit,
 			Visible = showPremium,
 			ZIndex = 5,
 			Parent = card,
 		})
+		applyIcon(premiumIcon, premiumIconData)
 	end
 
 	local premiumTitle = create("TextLabel", {
 		Name = "PremiumTitle",
 		BackgroundTransparency = 1,
-		Position = UDim2.fromOffset(hasPremiumIcon and 60 or 18, 282),
-		Size = UDim2.new(1, hasPremiumIcon and -174 or -132, 0, 19),
+		Position = UDim2.fromOffset(hasPremiumIcon and 47 or 16, 261),
+		Size = UDim2.new(1, hasPremiumIcon and -171 or -140, 0, 19),
 		Font = Enum.Font.GothamBold,
 		Text = options.PremiumTitle or "Get Premium",
 		TextColor3 = theme.Text,
@@ -782,12 +1124,13 @@ function KeySystem:_build()
 		Visible = showPremium,
 		Parent = card,
 	})
+	registerFont(premiumTitle, true)
 
 	local premiumSubtitle = create("TextLabel", {
 		Name = "PremiumSubtitle",
 		BackgroundTransparency = 1,
-		Position = UDim2.fromOffset(hasPremiumIcon and 60 or 18, 302),
-		Size = UDim2.new(1, hasPremiumIcon and -174 or -132, 0, 18),
+		Position = UDim2.fromOffset(hasPremiumIcon and 47 or 16, 281),
+		Size = UDim2.new(1, hasPremiumIcon and -171 or -140, 0, 18),
 		Font = Enum.Font.Gotham,
 		Text = options.PremiumSubtitle or "Instant delivery · 24/7 support",
 		TextColor3 = theme.MutedText,
@@ -798,25 +1141,48 @@ function KeySystem:_build()
 		Visible = showPremium,
 		Parent = card,
 	})
+	registerFont(premiumSubtitle, false)
 
 	local buyButton = create("TextButton", {
 		Name = "BuyPremium",
 		AnchorPoint = Vector2.new(1, 0),
 		AutoButtonColor = false,
-		BackgroundColor3 = theme.Accent,
+		BackgroundColor3 = theme.CardRaised,
 		BorderSizePixel = 0,
-		Position = UDim2.new(1, -18, 0, 287),
-		Size = UDim2.fromOffset(78, 34),
-		Font = Enum.Font.GothamBold,
-		Text = options.BuyText or "Buy  →",
-		TextColor3 = Color3.fromRGB(248, 250, 255),
-		TextSize = 12,
+		Position = UDim2.new(1, -16, 0, 264),
+		Size = UDim2.fromOffset(92, 34),
+		Text = "",
 		ZIndex = 5,
 		Visible = showPremium,
 		Parent = card,
 	})
-	addCorner(buyButton, 9)
-	self:_addHover(buyButton, theme.Accent, theme.AccentHover, "BuyHover")
+	addCorner(buyButton, theme.CornerRadius or 6)
+	addStroke(buyButton, theme.Outline, 0.2, 1)
+	local buyLabel, buyIcon = createCenteredContent(
+		buyButton,
+		"shopping-bag",
+		"shopping-cart",
+		options.BuyText or "Buy",
+		theme.Text,
+		theme.Accent,
+		12
+	)
+	self:_addHover(buyButton, theme.CardRaised, theme.CardHover, "BuyHover")
+	self:_connect(buyButton.MouseEnter, function()
+		if buyIcon then
+			self:_tween(buyIcon, "BuyIconHover", TweenInfo.new(0.11, Enum.EasingStyle.Quint), {
+				ImageColor3 = theme.AccentHover,
+			})
+		end
+	end)
+	self:_connect(buyButton.MouseLeave, function()
+		if buyIcon then
+			self:_tween(buyIcon, "BuyIconHover", TweenInfo.new(0.11, Enum.EasingStyle.Quint), {
+				ImageColor3 = theme.Accent,
+			})
+		end
+	end)
+	self.BuyLabel = buyLabel
 	self.BuyButton = buyButton
 
 	self:_connect(input.Focused, function()
@@ -824,13 +1190,23 @@ function KeySystem:_build()
 			Color = theme.Accent,
 			Transparency = 0.15,
 		})
+		if inputIcon then
+			self:_tween(inputIcon, "InputIcon", TweenInfo.new(0.12), {
+				ImageColor3 = theme.Accent,
+			})
+		end
 	end)
 
 	self:_connect(input.FocusLost, function(enterPressed)
 		self:_tween(inputStroke, "InputStroke", TweenInfo.new(0.12), {
-			Color = theme.OutlineSoft,
-			Transparency = 0.72,
+			Color = theme.Outline,
+			Transparency = 0.42,
 		})
+		if inputIcon then
+			self:_tween(inputIcon, "InputIcon", TweenInfo.new(0.12), {
+				ImageColor3 = theme.MutedText,
+			})
+		end
 		if enterPressed then
 			self:Submit()
 		end
@@ -845,8 +1221,8 @@ function KeySystem:_build()
 			self:SetStatus("")
 			local focused = input:IsFocused()
 			self:_tween(inputStroke, "InputStroke", TweenInfo.new(0.12), {
-				Color = focused and theme.Accent or theme.OutlineSoft,
-				Transparency = focused and 0.15 or 0.72,
+				Color = focused and theme.Accent or theme.Outline,
+				Transparency = focused and 0.15 or 0.42,
 			})
 		end
 	end)
@@ -901,18 +1277,36 @@ function KeySystem:_enableDragging(dragArea)
 			return
 		end
 		local delta = input.Position - dragStart
-		local nextPosition = UDim2.new(
-			startPosition.X.Scale,
-			startPosition.X.Offset + delta.X,
-			startPosition.Y.Scale,
-			startPosition.Y.Offset + delta.Y
-		)
+		local xOffset = startPosition.X.Offset + delta.X
+		local yOffset = startPosition.Y.Offset + delta.Y
+		local camera = workspace.CurrentCamera
+		if camera then
+			local viewport = camera.ViewportSize
+			local scale = self._responsiveScale or 1
+			local halfWidth = 210 * scale
+			local halfHeight = self.CardHeight * scale * 0.5
+			local absoluteX = startPosition.X.Scale * viewport.X + xOffset
+			local absoluteY = startPosition.Y.Scale * viewport.Y + yOffset
+			if viewport.X > halfWidth * 2 + 16 then
+				absoluteX = math.clamp(absoluteX, halfWidth + 8, viewport.X - halfWidth - 8)
+			else
+				absoluteX = viewport.X * 0.5
+			end
+			if viewport.Y > halfHeight * 2 + 16 then
+				absoluteY = math.clamp(absoluteY, halfHeight + 8, viewport.Y - halfHeight - 8)
+			else
+				absoluteY = viewport.Y * 0.5
+			end
+			xOffset = absoluteX - startPosition.X.Scale * viewport.X
+			yOffset = absoluteY - startPosition.Y.Scale * viewport.Y
+		end
+		local nextPosition = UDim2.new(startPosition.X.Scale, xOffset, startPosition.Y.Scale, yOffset)
 		self.Card.Position = nextPosition
 		self.Shadow.Position = UDim2.new(
 			nextPosition.X.Scale,
 			nextPosition.X.Offset,
 			nextPosition.Y.Scale,
-			nextPosition.Y.Offset + 8
+			nextPosition.Y.Offset + 5
 		)
 	end)
 
@@ -938,7 +1332,7 @@ function KeySystem:_enableResponsiveScale()
 		local viewport = camera.ViewportSize
 		local fitX = (viewport.X - 24) / 420
 		local fitY = (viewport.Y - 24) / self.CardHeight
-		local scale = math.clamp(math.min(fitX, fitY), 0.7, 1)
+		local scale = math.clamp(math.min(fitX, fitY), 0.55, 1)
 		self._responsiveScale = scale
 		if self.Visible then
 			self.CardScale.Scale = scale
@@ -995,14 +1389,40 @@ function KeySystem:SetBusy(busy)
 	end
 
 	self.Busy = busy == true
+	self._busyAnimationId = (self._busyAnimationId or 0) + 1
+	local animationId = self._busyAnimationId
 	self.VerifyButton.Active = not self.Busy
 	self.Input.TextEditable = not self.Busy
 	if self.Busy then
-		self.VerifyButton.Text = self.Options.CheckingText or "Checking..."
+		self.VerifyLabel.Text = self.Options.CheckingText or "Checking..."
 		self.VerifyButton.BackgroundTransparency = 0.16
+		if self.VerifyIcon then
+			applyIcon(self.VerifyIcon, self.VerifyLoadingIconData)
+			self.VerifyIcon.ImageTransparency = 0
+			self.VerifyIcon.Rotation = 0
+			task.spawn(function()
+				while not self.Destroyed and self.Busy and self._busyAnimationId == animationId do
+					self.VerifyIcon.Rotation = 0
+					local spin = self:_tween(self.VerifyIcon, "VerifySpin", TweenInfo.new(0.44, Enum.EasingStyle.Linear), {
+						Rotation = 360,
+					})
+					spin.Completed:Wait()
+				end
+			end)
+		end
 	else
-		self.VerifyButton.Text = self.Options.VerifyText or "Verify"
+		self.VerifyLabel.Text = self.Options.VerifyText or "Verify"
 		self.VerifyButton.BackgroundTransparency = 0
+		if self.VerifyIcon then
+			local spin = self._tweens.VerifySpin
+			if spin then
+				spin:Cancel()
+				self._tweens.VerifySpin = nil
+			end
+			self.VerifyIcon.Rotation = 0
+			applyIcon(self.VerifyIcon, self.VerifyIdleIconData)
+			self.VerifyIcon.ImageTransparency = 0
+		end
 	end
 end
 
@@ -1104,30 +1524,36 @@ function KeySystem:Show()
 	self.Visible = true
 	self.Gui.Enabled = true
 	local scale = self._responsiveScale or 1
-	self.CardScale.Scale = scale * 0.96
-	self.ShadowScale.Scale = scale * 0.96
+	local cardPosition = self.Card.Position
+	local shadowPosition = self.Shadow.Position
+	self.Card.Position = UDim2.new(cardPosition.X.Scale, cardPosition.X.Offset, cardPosition.Y.Scale, cardPosition.Y.Offset + 3)
+	self.Shadow.Position = UDim2.new(shadowPosition.X.Scale, shadowPosition.X.Offset, shadowPosition.Y.Scale, shadowPosition.Y.Offset + 3)
+	self.CardScale.Scale = scale * 0.975
+	self.ShadowScale.Scale = scale * 0.975
 	self.Card.GroupTransparency = 1
 	self.Shadow.BackgroundTransparency = 1
 	self.Overlay.BackgroundTransparency = 1
 
-	self:_tween(self.Overlay, "OverlayOpen", TweenInfo.new(0.18, Enum.EasingStyle.Quint), {
+	self:_tween(self.Overlay, "OverlayOpen", TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
 		BackgroundTransparency = self.Options.OverlayTransparency or 0.42,
 	})
-	self:_tween(self.Card, "CardOpen", TweenInfo.new(0.2, Enum.EasingStyle.Quint), {
+	self:_tween(self.Card, "CardOpen", TweenInfo.new(0.09, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
 		GroupTransparency = 0,
+		Position = cardPosition,
 	})
-	self:_tween(self.Shadow, "ShadowOpen", TweenInfo.new(0.2, Enum.EasingStyle.Quint), {
+	self:_tween(self.Shadow, "ShadowOpen", TweenInfo.new(0.09, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
 		BackgroundTransparency = 0.68,
+		Position = shadowPosition,
 	})
-	self:_tween(self.CardScale, "CardScale", TweenInfo.new(0.24, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+	self:_tween(self.CardScale, "CardScale", TweenInfo.new(0.09, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
 		Scale = scale,
 	})
-	self:_tween(self.ShadowScale, "ShadowScale", TweenInfo.new(0.24, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+	self:_tween(self.ShadowScale, "ShadowScale", TweenInfo.new(0.09, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
 		Scale = scale,
 	})
 	if self.BlurEffect then
-		self:_tween(self.BlurEffect, "Blur", TweenInfo.new(0.2), {
-			Size = self.Options.BlurSize or 12,
+		self:_tween(self.BlurEffect, "Blur", TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			Size = self.Options.BlurSize or 10,
 		})
 	end
 end
@@ -1141,22 +1567,22 @@ function KeySystem:Hide()
 	self._requestId = self._requestId + 1
 	self:SetBusy(false)
 
-	self:_tween(self.Overlay, "OverlayOpen", TweenInfo.new(0.14, Enum.EasingStyle.Quint), {
+	self:_tween(self.Overlay, "OverlayOpen", TweenInfo.new(0.06, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
 		BackgroundTransparency = 1,
 	})
-	self:_tween(self.Card, "CardOpen", TweenInfo.new(0.14, Enum.EasingStyle.Quint), {
+	self:_tween(self.Card, "CardOpen", TweenInfo.new(0.06, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
 		GroupTransparency = 1,
 	})
-	self:_tween(self.Shadow, "ShadowOpen", TweenInfo.new(0.14, Enum.EasingStyle.Quint), {
+	self:_tween(self.Shadow, "ShadowOpen", TweenInfo.new(0.06, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
 		BackgroundTransparency = 1,
 	})
 	if self.BlurEffect then
-		self:_tween(self.BlurEffect, "Blur", TweenInfo.new(0.14), {
+		self:_tween(self.BlurEffect, "Blur", TweenInfo.new(0.06, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
 			Size = 0,
 		})
 	end
 
-	task.delay(0.15, function()
+	task.delay(0.07, function()
 		if not self.Destroyed and not self.Visible then
 			self.Gui.Enabled = false
 		end
@@ -1207,8 +1633,8 @@ local MonHubKey = {
 	Appearance = {
 		Title = "MonHub",
 		Subtitle = "Enter your key to continue",
-		Icon = "",
-		IconSize = UDim2.fromOffset(30, 30),
+		Icon = "key",
+		IconSize = UDim2.fromOffset(18, 18),
 	},
 	Links = {
 		GetKey = "",
@@ -1227,21 +1653,29 @@ local MonHubKey = {
 		NoGetKey = false,
 	},
 	Theme = {
-		Accent = Color3.fromRGB(103, 156, 222),
-		AccentHover = Color3.fromRGB(119, 171, 235),
-		Background = Color3.fromRGB(22, 23, 28),
-		Header = Color3.fromRGB(22, 23, 28),
-		Input = Color3.fromRGB(29, 30, 37),
-		Text = Color3.fromRGB(244, 245, 248),
-		TextDim = Color3.fromRGB(150, 153, 166),
-		Success = Color3.fromRGB(92, 202, 142),
-		Error = Color3.fromRGB(237, 105, 115),
-		Warning = Color3.fromRGB(240, 180, 80),
-		StatusIdle = Color3.fromRGB(130, 135, 150),
+		Accent = Color3.fromRGB(133, 141, 160),
+		AccentHover = Color3.fromRGB(153, 161, 180),
+		AccentSoft = Color3.fromRGB(39, 43, 51),
+		Background = Color3.fromRGB(17, 19, 22),
+		Header = Color3.fromRGB(29, 32, 37),
+		Surface = Color3.fromRGB(23, 25, 29),
+		Raised = Color3.fromRGB(29, 32, 37),
+		Input = Color3.fromRGB(31, 34, 39),
+		Hover = Color3.fromRGB(38, 42, 49),
+		Text = Color3.fromRGB(238, 240, 244),
+		TextDim = Color3.fromRGB(146, 151, 160),
+		TextFaint = Color3.fromRGB(108, 113, 122),
+		Success = Color3.fromRGB(94, 194, 139),
+		Error = Color3.fromRGB(196, 58, 76),
+		Warning = Color3.fromRGB(208, 157, 80),
+		StatusIdle = Color3.fromRGB(146, 151, 160),
 		Discord = Color3.fromRGB(88, 101, 242),
 		DiscordHover = Color3.fromRGB(114, 137, 218),
-		Divider = Color3.fromRGB(44, 46, 54),
-		Pending = Color3.fromRGB(60, 60, 68),
+		Divider = Color3.fromRGB(52, 57, 66),
+		Outline = Color3.fromRGB(52, 57, 66),
+		Shadow = Color3.fromRGB(5, 6, 8),
+		Pending = Color3.fromRGB(39, 43, 51),
+		CornerRadius = 6,
 	},
 	Callbacks = {
 		OnVerify = nil,
@@ -1251,7 +1685,7 @@ local MonHubKey = {
 	},
 	Shop = {
 		Enabled = false,
-		Icon = "",
+		Icon = "gem",
 		Title = "Get Premium Access",
 		Subtitle = "Instant delivery • 24/7 support",
 		ButtonText = "Buy",
@@ -1422,30 +1856,37 @@ end
 
 local function themeOptions()
 	return {
-		Overlay = Color3.fromRGB(5, 7, 10),
+		Overlay = MonHubKey.Theme.Shadow or Color3.fromRGB(5, 6, 8),
 		Card = MonHubKey.Theme.Background,
 		Header = MonHubKey.Theme.Header,
+		Surface = MonHubKey.Theme.Surface or MonHubKey.Theme.Background,
 		CardRaised = MonHubKey.Theme.Input,
-		CardHover = MonHubKey.Theme.Input,
-		Outline = MonHubKey.Theme.Divider,
-		OutlineSoft = MonHubKey.Theme.Divider,
+		CardHover = MonHubKey.Theme.Hover or MonHubKey.Theme.Input,
+		Outline = MonHubKey.Theme.Outline or MonHubKey.Theme.Divider,
+		OutlineSoft = MonHubKey.Theme.AccentSoft or MonHubKey.Theme.Divider,
 		Text = MonHubKey.Theme.Text,
 		MutedText = MonHubKey.Theme.TextDim,
-		FaintText = MonHubKey.Theme.TextDim,
-		Primary = MonHubKey.Theme.Accent,
-		PrimaryHover = MonHubKey.Theme.AccentHover,
+		FaintText = MonHubKey.Theme.TextFaint or MonHubKey.Theme.TextDim,
+		Primary = MonHubKey.Theme.Raised or MonHubKey.Theme.Input,
+		PrimaryHover = MonHubKey.Theme.Hover or MonHubKey.Theme.Input,
 		PrimaryText = MonHubKey.Theme.Text,
 		Accent = MonHubKey.Theme.Accent,
 		AccentHover = MonHubKey.Theme.AccentHover,
+		AccentSoft = MonHubKey.Theme.AccentSoft or MonHubKey.Theme.Divider,
+		Shadow = MonHubKey.Theme.Shadow or Color3.fromRGB(5, 6, 8),
 		Success = MonHubKey.Theme.Success,
 		Danger = MonHubKey.Theme.Error,
+		CornerRadius = MonHubKey.Theme.CornerRadius or 6,
 	}
 end
 
 local function runSuccess(key, data)
 	Environment.SCRIPT_KEY = key
 	Environment.UI_CLOSED = false
+<<<<<<< HEAD
+=======
 	Environment.MONHUB_KEY_CLOSED = false
+>>>>>>> ad68b390578f41697efa91ba22aa27c4011c0fc6
 	Environment.MONHUB_KEY_CLOSED = false
 	saveKey(key)
 	safeCall(MonHubKey.Callbacks.OnSuccess, key, data)
@@ -1466,7 +1907,7 @@ local function buildGate(validate, keyless)
 		Subtitle = keyless and "Ready to launch" or MonHubKey.Appearance.Subtitle,
 		Icon = MonHubKey.Appearance.Icon,
 		IconSize = MonHubKey.Appearance.IconSize,
-		Placeholder = keyless and "KEYLESS" or "key",
+		Placeholder = keyless and "KEYLESS" or "Enter key",
 		DefaultKey = keyless and "KEYLESS" or "",
 		VerifyText = keyless and "Launch" or "Verify",
 		CheckingText = keyless and "Launching..." or "Checking...",
